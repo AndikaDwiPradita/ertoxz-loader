@@ -76,9 +76,17 @@ local grinderRunning = false
 local grinderStop = false
 local grinderVars = {}
 
--- Fitur Floating Items Detector
-local floatingItems = {}
-local floatingScanTime = 0
+-- Fitur Rotasi PTHT & PNB
+local rotationConfig = {
+    pthtCycles = 1,      -- jumlah siklus PTHT
+    pnbCycles = 1,       -- jumlah siklus PNB
+    totalLoops = 1,      -- total pengulangan (0 = infinite)
+    currentLoop = 0,
+    mode = "PTHT",       -- mode awal
+}
+local rotationRunning = false
+local rotationStop = false
+local rotationThread = nil
 
 -- ==================== FUNGSI UMUM ====================
 local function getWorldSize()
@@ -940,28 +948,87 @@ local function runAutoGrinder()
     end)
 end
 
--- ==================== FUNGSI SCAN FLOATING ITEMS ====================
-local function scanFloatingItems()
-    floatingItems = {}
-    local objects = GetObjectList()
-    if not objects then return end
-    
-    for _, obj in pairs(objects) do
-        local info = GetItemByIDSafe(obj.id)
-        local name = info and info.name or "Unknown"
-        table.insert(floatingItems, {
-            id = obj.id,
-            name = name,
-            x = math.floor(obj.pos.x / 32),
-            y = math.floor(obj.pos.y / 32),
-            amount = obj.amount or 1
-        })
+-- ==================== FUNGSI ROTASI PTHT & PNB ====================
+local function runRotation()
+    if rotationRunning then return end
+    rotationRunning = true
+    rotationStop = false
+    currentAction = "rotasi"
+
+    -- Reset counter
+    rotationConfig.currentLoop = 0
+    local pthtCount = 0
+    local pnbCount = 0
+
+    LogToConsole("`2Memulai rotasi: PTHT " .. rotationConfig.pthtCycles .. "x, PNB " .. rotationConfig.pnbCycles .. "x")
+
+    RunThread(function()
+        while not rotationStop do
+            -- Cek apakah perlu stop
+            if rotationConfig.totalLoops > 0 and rotationConfig.currentLoop >= rotationConfig.totalLoops then
+                break
+            end
+
+            -- Jalankan PTHT
+            if rotationConfig.mode == "PTHT" then
+                LogToConsole("`7Mode PTHT (" .. (pthtCount+1) .. "/" .. rotationConfig.pthtCycles .. ")")
+                -- Simpan state PTHT
+                local oldPthtRunning = pthtRunning
+                -- Jalankan PTHT (asumsikan runPTHT sudah ada)
+                runPTHT()  -- Ini akan memulai thread PTHT
+                -- Tunggu hingga PTHT selesai
+                while pthtRunning and not rotationStop do
+                    Sleep(500)
+                end
+                pthtCount = pthtCount + 1
+                if pthtCount >= rotationConfig.pthtCycles then
+                    rotationConfig.mode = "PNB"
+                    pthtCount = 0
+                end
+            end
+
+            -- Jalankan PNB
+            if rotationConfig.mode == "PNB" and not rotationStop then
+                LogToConsole("`7Mode PNB (" .. (pnbCount+1) .. "/" .. rotationConfig.pnbCycles .. ")")
+                -- Simpan state PNB (asumsikan ada fungsi startPNB)
+                startPNB()  -- Fungsi startPNB dari fitur PNB
+                while pnbRunning and not rotationStop do
+                    Sleep(500)
+                end
+                pnbCount = pnbCount + 1
+                if pnbCount >= rotationConfig.pnbCycles then
+                    rotationConfig.mode = "PTHT"
+                    pnbCount = 0
+                    rotationConfig.currentLoop = rotationConfig.currentLoop + 1
+                end
+            end
+
+            Sleep(1000)  -- jeda antar siklus
+        end
+
+        if rotationStop then
+            LogToConsole("`4Rotasi dihentikan.")
+        else
+            LogToConsole("`2Rotasi selesai.")
+        end
+        rotationRunning = false
+    end)
+end
+
+local function startRotation()
+    if rotationRunning then return end
+    rotationRunning = true
+    rotationStop = false
+    RunThread(function() runRotation() end)
+end
+
+local function stopRotation()
+    if rotationRunning then
+        rotationStop = true
+        rotationRunning = false
+        -- Hentikan juga fitur yang sedang berjalan
+        stopAction()  -- stopAction sudah menghentikan semua
     end
-    
-    -- Urutkan berdasarkan ID
-    table.sort(floatingItems, function(a, b) return a.id < b.id end)
-    floatingScanTime = os.time()
-    LogToConsole(string.format("`2Ditemukan %d item floating", #floatingItems))
 end
 
 -- =========================== StopAction ==============================
@@ -972,8 +1039,11 @@ local function stopAction()
     if geigerRunning then geigerStop = true; geigerRunning = false end
     if grinderRunning then grinderStop = true; grinderRunning = false end
     if harvestRunning then harvestStop = true; harvestRunning = false end
+    if pnbRunning then pnbStop = true; pnbRunning = false end
+    if rotationRunning then rotationStop = true; rotationRunning = false end
 end
 
+-- =========================== GUI UMUM ==============================
 AddHook("OnDraw", "ErtoxzGUI", function(dt)
     if ImGui.Begin("ERTOXZ LOADER") then
         -- Header PUT / BREK PLAT
@@ -1185,49 +1255,34 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
             end
         end
 
-                    -- Header FLOATING ITEMS DETECTOR
-        if ImGui.CollapsingHeader("FLOATING ITEMS") then
-            ImGui.Text("Item yang jatuh di world")
+                    -- Header ROTASI PTHT & PNB
+        if ImGui.CollapsingHeader("ROTASI PTHT & PNB") then
+            ImGui.Text("Settings Rotasi")
             ImGui.Separator()
-            
-            if ImGui.Button("Scan Sekarang", 120, 25) then
-                scanFloatingItems()
-            end
-            ImGui.SameLine()
-            ImGui.Text("Terakhir scan: " .. (floatingScanTime > 0 and os.date("%H:%M:%S", floatingScanTime) or "-"))
-            
+
+            local changedPTHT, newPTHT = ImGui.InputInt("Siklus PTHT", rotationConfig.pthtCycles, 1, 10)
+            if changedPTHT then rotationConfig.pthtCycles = newPTHT end
+
+            local changedPNB, newPNB = ImGui.InputInt("Siklus PNB", rotationConfig.pnbCycles, 1, 10)
+            if changedPNB then rotationConfig.pnbCycles = newPNB end
+
+            local changedLoops, newLoops = ImGui.InputInt("Total Loop (0 = infinite)", rotationConfig.totalLoops, 1, 10)
+            if changedLoops then rotationConfig.totalLoops = newLoops end
+
             ImGui.Separator()
-            
-            if #floatingItems == 0 then
-                ImGui.Text("Belum ada data. Klik Scan.")
-            else
-                -- Tabel dengan kolom
-                ImGui.Columns(6, "floatingTable", true)
-                ImGui.Text("ID"); ImGui.NextColumn()
-                ImGui.Text("Nama"); ImGui.NextColumn()
-                ImGui.Text("X"); ImGui.NextColumn()
-                ImGui.Text("Y"); ImGui.NextColumn()
-                ImGui.Text("Jumlah"); ImGui.NextColumn()
-                ImGui.Text("Aksi"); ImGui.NextColumn()
-                ImGui.Separator()
-                
-                for i, item in ipairs(floatingItems) do
-                    ImGui.Text(tostring(item.id)); ImGui.NextColumn()
-                    ImGui.Text(item.name); ImGui.NextColumn()
-                    ImGui.Text(tostring(item.x)); ImGui.NextColumn()
-                    ImGui.Text(tostring(item.y)); ImGui.NextColumn()
-                    ImGui.Text(tostring(item.amount)); ImGui.NextColumn()
-                    if ImGui.Button("Teleport##" .. i, 60, 20) then
-                        RunThread(function()
-                            FindPath(item.x, item.y, pthtConfig.pathfinderDelay or 520)
-                            LogToConsole(string.format("`2Teleport ke (%d, %d)", item.x, item.y))
-                        end)
-                    end
-                    ImGui.NextColumn()
+            if not rotationRunning and not running and not pthtRunning and not pnbRunning then
+                if ImGui.Button("Start Rotasi") then
+                    startRotation()
                 end
-                ImGui.Columns(1)
+            else
+                if ImGui.Button("Stop##rotasi") then
+                    stopAction()
+                end
+                ImGui.SameLine()
+                ImGui.Text("Sedang " .. currentAction .. "...")
             end
         end
+
 
         ImGui.End()
     end
