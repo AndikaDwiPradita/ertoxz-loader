@@ -76,6 +76,9 @@ local grinderRunning = false
 local grinderStop = false
 local grinderVars = {}
 
+-- Fitur Floating Items Detector
+local floatingItems = {}
+local floatingScanTime = 0
 
 -- ==================== FUNGSI UMUM ====================
 local function getWorldSize()
@@ -937,6 +940,30 @@ local function runAutoGrinder()
     end)
 end
 
+-- ==================== FUNGSI SCAN FLOATING ITEMS ====================
+local function scanFloatingItems()
+    floatingItems = {}
+    local objects = GetObjectList()
+    if not objects then return end
+    
+    for _, obj in pairs(objects) do
+        local info = GetItemByIDSafe(obj.id)
+        local name = info and info.name or "Unknown"
+        table.insert(floatingItems, {
+            id = obj.id,
+            name = name,
+            x = math.floor(obj.pos.x / 32),
+            y = math.floor(obj.pos.y / 32),
+            amount = obj.amount or 1
+        })
+    end
+    
+    -- Urutkan berdasarkan ID
+    table.sort(floatingItems, function(a, b) return a.id < b.id end)
+    floatingScanTime = os.time()
+    LogToConsole(string.format("`2Ditemukan %d item floating", #floatingItems))
+end
+
 -- =========================== StopAction ==============================
 local function stopAction()
     if running then stopRequested = true; running = false end
@@ -1155,6 +1182,42 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
                 end
                 ImGui.SameLine()
                 ImGui.Text("Sedang " .. currentAction .. "...")
+            end
+        end
+
+                    -- Header FLOATING ITEMS DETECTOR
+        if ImGui.CollapsingHeader("FLOATING ITEMS") then
+            ImGui.Text("Item yang jatuh di world")
+            ImGui.Separator()
+            
+            if ImGui.Button("Scan Sekarang", 120, 25) then
+                scanFloatingItems()
+            end
+            ImGui.SameLine()
+            ImGui.Text("Terakhir scan: " .. (floatingScanTime > 0 and os.date("%H:%M:%S", floatingScanTime) or "-"))
+            
+            ImGui.Separator()
+            
+            if #floatingItems == 0 then
+                ImGui.Text("Belum ada data. Klik Scan.")
+            else
+                -- Tabel dengan kolom
+                ImGui.Columns(5, "floatingTable", true)
+                ImGui.Text("ID"); ImGui.NextColumn()
+                ImGui.Text("Nama"); ImGui.NextColumn()
+                ImGui.Text("X"); ImGui.NextColumn()
+                ImGui.Text("Y"); ImGui.NextColumn()
+                ImGui.Text("Jumlah"); ImGui.NextColumn()
+                ImGui.Separator()
+                
+                for i, item in ipairs(floatingItems) do
+                    ImGui.Text(tostring(item.id)); ImGui.NextColumn()
+                    ImGui.Text(item.name); ImGui.NextColumn()
+                    ImGui.Text(tostring(item.x)); ImGui.NextColumn()
+                    ImGui.Text(tostring(item.y)); ImGui.NextColumn()
+                    ImGui.Text(tostring(item.amount)); ImGui.NextColumn()
+                end
+                ImGui.Columns(1)
             end
         end
 
