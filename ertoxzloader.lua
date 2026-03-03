@@ -82,7 +82,8 @@ local rotationConfig = {
     pnbCycles = 1,       -- jumlah siklus PNB
     totalLoops = 1,      -- total pengulangan (0 = infinite)
     currentLoop = 0,
-    mode = "PTHT",       -- mode awal
+    startMode = "PTHT",  -- mode awal (PTHT atau PNB)
+    mode = "PTHT",
 }
 local rotationRunning = false
 local rotationStop = false
@@ -949,70 +950,67 @@ local function runAutoGrinder()
 end
 
 -- ==================== FUNGSI ROTASI PTHT & PNB ====================
-local function runRotation()
+local function startRotation()
     if rotationRunning then return end
+    rotationConfig.mode = rotationConfig.startMode   -- set mode sesuai pilihan
+    rotationConfig.currentLoop = 0
     rotationRunning = true
     rotationStop = false
-    currentAction = "rotasi"
+    rotationThread = RunThread(function() runRotation() end)
+end
 
     -- Reset counter
-    rotationConfig.currentLoop = 0
+    local function runRotation()
     local pthtCount = 0
     local pnbCount = 0
 
-    LogToConsole("`2Memulai rotasi: PTHT " .. rotationConfig.pthtCycles .. "x, PNB " .. rotationConfig.pnbCycles .. "x")
+    LogToConsole("`2Memulai rotasi: PTHT " .. rotationConfig.pthtCycles .. "x, PNB " .. rotationConfig.pnbCycles .. "x (Mode awal: " .. rotationConfig.startMode .. ")")
 
-    RunThread(function()
-        while not rotationStop do
-            -- Cek apakah perlu stop
-            if rotationConfig.totalLoops > 0 and rotationConfig.currentLoop >= rotationConfig.totalLoops then
-                break
-            end
-
-            -- Jalankan PTHT
-            if rotationConfig.mode == "PTHT" then
-                LogToConsole("`7Mode PTHT (" .. (pthtCount+1) .. "/" .. rotationConfig.pthtCycles .. ")")
-                -- Simpan state PTHT
-                local oldPthtRunning = pthtRunning
-                -- Jalankan PTHT (asumsikan runPTHT sudah ada)
-                runPTHT()  -- Ini akan memulai thread PTHT
-                -- Tunggu hingga PTHT selesai
-                while pthtRunning and not rotationStop do
-                    Sleep(500)
-                end
-                pthtCount = pthtCount + 1
-                if pthtCount >= rotationConfig.pthtCycles then
-                    rotationConfig.mode = "PNB"
-                    pthtCount = 0
-                end
-            end
-
-            -- Jalankan PNB
-            if rotationConfig.mode == "PNB" and not rotationStop then
-                LogToConsole("`7Mode PNB (" .. (pnbCount+1) .. "/" .. rotationConfig.pnbCycles .. ")")
-                -- Simpan state PNB (asumsikan ada fungsi startPNB)
-                startPNB()  -- Fungsi startPNB dari fitur PNB
-                while pnbRunning and not rotationStop do
-                    Sleep(500)
-                end
-                pnbCount = pnbCount + 1
-                if pnbCount >= rotationConfig.pnbCycles then
-                    rotationConfig.mode = "PTHT"
-                    pnbCount = 0
-                    rotationConfig.currentLoop = rotationConfig.currentLoop + 1
-                end
-            end
-
-            Sleep(1000)  -- jeda antar siklus
+    while not rotationStop do
+        -- Cek apakah perlu stop berdasarkan total loop
+        if rotationConfig.totalLoops > 0 and rotationConfig.currentLoop >= rotationConfig.totalLoops then
+            break
         end
 
-        if rotationStop then
-            LogToConsole("`4Rotasi dihentikan.")
-        else
-            LogToConsole("`2Rotasi selesai.")
+        -- Jalankan PTHT
+        if rotationConfig.mode == "PTHT" then
+            LogToConsole("`7Mode PTHT (" .. (pthtCount+1) .. "/" .. rotationConfig.pthtCycles .. ")")
+            runPTHT()  -- asumsikan runPTHT sudah ada
+            -- Tunggu hingga PTHT selesai
+            while pthtRunning and not rotationStop do
+                Sleep(500)
+            end
+            pthtCount = pthtCount + 1
+            if pthtCount >= rotationConfig.pthtCycles then
+                rotationConfig.mode = "PNB"
+                pthtCount = 0
+            end
         end
-        rotationRunning = false
-    end)
+
+        -- Jalankan PNB
+        if rotationConfig.mode == "PNB" and not rotationStop then
+            LogToConsole("`7Mode PNB (" .. (pnbCount+1) .. "/" .. rotationConfig.pnbCycles .. ")")
+            startPNB()  -- asumsikan startPNB sudah ada
+            while pnbRunning and not rotationStop do
+                Sleep(500)
+            end
+            pnbCount = pnbCount + 1
+            if pnbCount >= rotationConfig.pnbCycles then
+                rotationConfig.mode = "PTHT"
+                pnbCount = 0
+                rotationConfig.currentLoop = rotationConfig.currentLoop + 1
+            end
+        end
+
+        Sleep(1000)
+    end
+
+    if rotationStop then
+        LogToConsole("`4Rotasi dihentikan.")
+    else
+        LogToConsole("`2Rotasi selesai.")
+    end
+    rotationRunning = false
 end
 
 local function startRotation()
@@ -1255,7 +1253,7 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
             end
         end
 
-                    -- Header ROTASI PTHT & PNB
+        -- Header ROTASI PTHT & PNB
         if ImGui.CollapsingHeader("ROTASI PTHT & PNB") then
             ImGui.Text("Settings Rotasi")
             ImGui.Separator()
@@ -1268,6 +1266,15 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
 
             local changedLoops, newLoops = ImGui.InputInt("Total Loop (0 = infinite)", rotationConfig.totalLoops, 1, 10)
             if changedLoops then rotationConfig.totalLoops = newLoops end
+
+            ImGui.Text("Mode Awal:")
+            if ImGui.RadioButton("PTHT dulu", rotationConfig.startMode == "PTHT") then
+                rotationConfig.startMode = "PTHT"
+            end
+            ImGui.SameLine()
+            if ImGui.RadioButton("PNB dulu", rotationConfig.startMode == "PNB") then
+                rotationConfig.startMode = "PNB"
+            end
 
             ImGui.Separator()
             if not rotationRunning and not running and not pthtRunning and not pnbRunning then
