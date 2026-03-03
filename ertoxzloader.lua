@@ -964,11 +964,15 @@ end
 -- ==================== GUI UTAMA (COLLAPSING HEADER) ====================
 AddHook("OnDraw", "ErtoxzGUI", function(dt)
     if ImGui.Begin("ERTOXZ LOADER") then
-        -- Header PUT / BREK PLAT
+        
+        -- ==================== PUT / BREK PLAT ====================
         if ImGui.CollapsingHeader("PUT / BREK PLAT") then
-            ImGui.Text("Settings Put/Break Plat")
-            ImGui.Separator()
-
+            ImGui.Columns(2, "col_putbreak", false)
+            
+            -- Kolom kiri: Settings
+            ImGui.Text("Settings");
+            ImGui.Separator();
+            
             ImGui.Text("ID Plat:")
             local changed, newID = ImGui.InputInt("##platID", platID, 1, 100)
             if changed then platID = newID end
@@ -977,123 +981,149 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
             local changedD, newDelay = ImGui.InputInt("##delay", delay, 10, 100)
             if changedD then delay = newDelay end
 
-            ImGui.Separator()
             ImGui.Text("Tipe World:")
-            if ImGui.RadioButton("Normal", worldType == "normal") then
-                worldType = "normal"
-            end
-            if ImGui.RadioButton("Island", worldType == "island") then
-                worldType = "island"
-            end
-            if ImGui.RadioButton("Nether", worldType == "nether") then
-                worldType = "nether"
-            end
+            if ImGui.RadioButton("Normal##pb", worldType == "normal") then worldType = "normal" end
+            ImGui.SameLine()
+            if ImGui.RadioButton("Island##pb", worldType == "island") then worldType = "island" end
+            ImGui.SameLine()
+            if ImGui.RadioButton("Nether##pb", worldType == "nether") then worldType = "nether" end
 
-            ImGui.Separator()
-            local changedM, newMray = ImGui.Checkbox("Mray (hand)", mray)
+            local changedM, newMray = ImGui.Checkbox("Mray (hand)##pb", mray)
             if changedM then mray = newMray end
 
-            local changedAF, newAF = ImGui.Checkbox("Auto Find Item (Put)", autoFind)
+            local changedAF, newAF = ImGui.Checkbox("Auto Find Item (Put)##pb", autoFind)
             if changedAF then autoFind = newAF end
-
+            
+            ImGui.NextColumn()
+            
+            -- Kolom kanan: Status
+            ImGui.Text("Status");
+            ImGui.Separator();
+            
+            if running then
+                if currentAction == "put" then
+                    ImGui.TextColored(0,255,0,255, "● Sedang Put Plat")
+                elseif currentAction == "break" then
+                    ImGui.TextColored(0,255,0,255, "● Sedang Break Plat")
+                else
+                    ImGui.TextColored(0,255,0,255, "● Running")
+                end
+            else
+                ImGui.TextColored(255,255,255,100, "○ Stopped")
+            end
+            
+            -- Informasi tambahan bisa ditambahkan di sini, misal posisi terakhir
+            -- Namun karena tidak ada variabel spesifik, kita tampilkan saja.
+            
+            ImGui.Columns(1)
+            
             ImGui.Separator()
-            if not running and not pthtRunning and not geigerRunning and not grinderRunning then
-                if ImGui.Button("Start Put Plat") then
+            if not running and not pthtRunning and not vendSmartRunning and not geigerRunning and not grinderRunning and not harvestRunning then
+                if ImGui.Button("Start Put Plat##pb") then
                     runPutPlat()
                 end
                 ImGui.SameLine()
-                if ImGui.Button("Start Break Plat") then
+                if ImGui.Button("Start Break Plat##pb") then
                     runBreakPlat()
                 end
             else
-                if ImGui.Button("Stop") then
+                if ImGui.Button("Stop##pb") then
                     stopAction()
                 end
                 ImGui.SameLine()
                 ImGui.Text("Sedang " .. currentAction .. "...")
             end
         end
-
-        -- Header AUTO PTHT
+        
+        -- ==================== AUTO PTHT ====================
         if ImGui.CollapsingHeader("AUTO PTHT") then
-            ImGui.Text("Settings PTHT (Plant = Put, Harvest = Break)")
-            ImGui.Separator()
-
-            local changedTree, newTree = ImGui.InputInt("ID Tree", pthtConfig.treeID, 1, 100)
+            ImGui.Columns(2, "col_ptht", false)
+            
+            -- Kolom kiri: Settings
+            ImGui.Text("Settings");
+            ImGui.Separator();
+            
+            local changedTree, newTree = ImGui.InputInt("ID Tree##ptht", pthtConfig.treeID, 1, 100)
             if changedTree then pthtConfig.treeID = newTree end
 
-            local changedMode, newMode = ImGui.InputText("Mode (PT/PTHT/HT)", pthtConfig.startMode, 10)
+            local changedMode, newMode = ImGui.InputText("Mode (PT/PTHT/HT)##ptht", pthtConfig.startMode, 10)
             if changedMode then pthtConfig.startMode = newMode end
 
             local loopStr = tostring(pthtConfig.loop)
-            local changedLoop, newLoop = ImGui.InputText("Loop (angka/'unli')", loopStr, 10)
+            local changedLoop, newLoop = ImGui.InputText("Loop (angka/'unli')##ptht", loopStr, 10)
             if changedLoop then
-                if newLoop:lower() == "unli" then
-                    pthtConfig.loop = "unli"
-                else
-                    local num = tonumber(newLoop)
-                    if num then pthtConfig.loop = num end
-                end
+                if newLoop:lower() == "unli" then pthtConfig.loop = "unli"
+                else local num = tonumber(newLoop); if num then pthtConfig.loop = num end end
             end
 
-            ImGui.Separator()
-            ImGui.Text("Delay:")
-            local changedDH, newDH = ImGui.InputInt("Harvest (ms)", pthtConfig.delayHarvest, 1, 10)
+            ImGui.Text("Delay:");
+            local changedDH, newDH = ImGui.InputInt("Harvest (ms)##ptht", pthtConfig.delayHarvest, 1, 10)
             if changedDH then pthtConfig.delayHarvest = newDH end
-            local changedDE, newDE = ImGui.InputInt("Entering (ms)", pthtConfig.delayEntering, 1, 10)
+            local changedDE, newDE = ImGui.InputInt("Entering (ms)##ptht", pthtConfig.delayEntering, 1, 10)
             if changedDE then pthtConfig.delayEntering = newDE end
-            local changedDP, newDP = ImGui.InputInt("Plant (ms)", pthtConfig.delayPlant, 1, 10)
+            local changedDP, newDP = ImGui.InputInt("Plant (ms)##ptht", pthtConfig.delayPlant, 1, 10)
             if changedDP then pthtConfig.delayPlant = newDP end
-            local changedPD, newPD = ImGui.InputInt("Pathfinder Delay", pthtConfig.pathfinderDelay, 10, 100)
+            local changedPD, newPD = ImGui.InputInt("Pathfinder Delay##ptht", pthtConfig.pathfinderDelay, 10, 100)
             if changedPD then pthtConfig.pathfinderDelay = newPD end
 
-            ImGui.Separator()
-            ImGui.Text("Other:")
-            local changedMrayP, newMrayP = ImGui.Checkbox("Mray", pthtConfig.mray)
+            ImGui.Text("Other:");
+            local changedMrayP, newMrayP = ImGui.Checkbox("Mray##ptht", pthtConfig.mray)
             if changedMrayP then pthtConfig.mray = newMrayP end
-            local changedWeb, newWeb = ImGui.InputText("Webhook URL", pthtConfig.webhook, 100)
+            local changedWeb, newWeb = ImGui.InputText("Webhook URL##ptht", pthtConfig.webhook, 100)
             if changedWeb then pthtConfig.webhook = newWeb end
-            local changedDisc, newDisc = ImGui.InputText("Discord ID", pthtConfig.discordID, 30)
+            local changedDisc, newDisc = ImGui.InputText("Discord ID##ptht", pthtConfig.discordID, 30)
             if changedDisc then pthtConfig.discordID = newDisc end
 
-            ImGui.Separator()
-            ImGui.Text("Magplant:")
-            local changedLimit, newLimit = ImGui.InputInt("Limit", pthtConfig.magplantLimit, 1, 10)
+            ImGui.Text("Magplant:");
+            local changedLimit, newLimit = ImGui.InputInt("Limit##ptht", pthtConfig.magplantLimit, 1, 10)
             if changedLimit then pthtConfig.magplantLimit = newLimit end
-            local changedBcg, newBcg = ImGui.InputInt("Background ID", pthtConfig.magplantBcg, 1, 100)
+            local changedBcg, newBcg = ImGui.InputInt("Background ID##ptht", pthtConfig.magplantBcg, 1, 100)
             if changedBcg then pthtConfig.magplantBcg = newBcg end
 
-            ImGui.Separator()
-            ImGui.Text("Tipe World (sama dengan PUT/BREK):")
-            if ImGui.RadioButton("Normal##ptht", worldType == "normal") then
-                worldType = "normal"
-            end
+            ImGui.Text("Tipe World:");
+            if ImGui.RadioButton("Normal##ptht", worldType == "normal") then worldType = "normal" end
             ImGui.SameLine()
-            if ImGui.RadioButton("Island##ptht", worldType == "island") then
-                worldType = "island"
-            end
+            if ImGui.RadioButton("Island##ptht", worldType == "island") then worldType = "island" end
             ImGui.SameLine()
-            if ImGui.RadioButton("Nether##ptht", worldType == "nether") then
-                worldType = "nether"
+            if ImGui.RadioButton("Nether##ptht", worldType == "nether") then worldType = "nether" end
+            
+            ImGui.NextColumn()
+            
+            -- Kolom kanan: Status
+            ImGui.Text("Status");
+            ImGui.Separator();
+            
+            if pthtRunning then
+                ImGui.TextColored(0,255,0,255, "● Running")
+                ImGui.Text("Mode: " .. (pthtVars.plant and "Plant" or (pthtVars.harvest and "Harvest" or "?")))
+                ImGui.Text("Loop: " .. (pthtVars.counter // 2 + 1) .. "/" .. (pthtConfig.loop == "unli" and "∞" or pthtConfig.loop))
+                ImGui.Text("UWS Used: " .. pthtVars.uwsUsed)
+                ImGui.Text("Magplant Stock: " .. (pthtVars.iM or 0))
+            else
+                ImGui.TextColored(255,255,255,100, "○ Stopped")
             end
-
+            
+            ImGui.Columns(1)
+            
             ImGui.Separator()
-            if not pthtRunning and not running and not geigerRunning and not grinderRunning then
-                if ImGui.Button("Start PTHT") then
+            if not pthtRunning and not running and not vendSmartRunning and not geigerRunning and not grinderRunning and not harvestRunning then
+                if ImGui.Button("Start PTHT##ptht") then
                     runPTHT()
                 end
             else
-                if ImGui.Button("Stop") then
+                if ImGui.Button("Stop##ptht") then
                     stopAction()
                 end
                 ImGui.SameLine()
                 ImGui.Text("Sedang " .. currentAction .. "...")
             end
         end
+        
 
-                -- Header AUTO GEIGER
+        
+        -- ==================== AUTO GEIGER ====================
         if ImGui.CollapsingHeader("AUTO GEIGER") then
-            ImGui.Columns(2, "geigerCol", false)
+            ImGui.Columns(2, "col_geiger", false)
             
             -- Kolom kiri: Settings
             ImGui.Text("Settings");
@@ -1101,25 +1131,25 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
             
             local changedWeb, newWeb = ImGui.InputText("Webhook URL##geiger", geigerConfig.webhook, 200)
             if changedWeb then geigerConfig.webhook = newWeb end
-            
+
             local changedWG, newWG = ImGui.InputText("World Geiger##geiger", geigerConfig.worldGeiger, 30)
             if changedWG then geigerConfig.worldGeiger = newWG end
-            
+
             local changedWS, newWS = ImGui.InputText("World Save##geiger", geigerConfig.worldSave, 30)
             if changedWS then geigerConfig.worldSave = newWS end
-            
+
             ImGui.Text("Alive Geiger Position:");
             local changedAGX, newAGX = ImGui.InputInt("X##geigerAG", geigerConfig.aliveGeigerPos[1], 1, 10)
             if changedAGX then geigerConfig.aliveGeigerPos[1] = newAGX end
             local changedAGY, newAGY = ImGui.InputInt("Y##geigerAG", geigerConfig.aliveGeigerPos[2], 1, 10)
             if changedAGY then geigerConfig.aliveGeigerPos[2] = newAGY end
-            
+
             ImGui.Text("Dead Drop Left:");
             local changedDDX, newDDX = ImGui.InputInt("X##geigerDD", geigerConfig.deadDropLeft[1], 1, 10)
             if changedDDX then geigerConfig.deadDropLeft[1] = newDDX end
             local changedDDY, newDDY = ImGui.InputInt("Y##geigerDD", geigerConfig.deadDropLeft[2], 1, 10)
             if changedDDY then geigerConfig.deadDropLeft[2] = newDDY end
-            
+
             ImGui.Text("Item Drop Left:");
             local changedIDX, newIDX = ImGui.InputInt("X##geigerID", geigerConfig.itemDropLeft[1], 1, 10)
             if changedIDX then geigerConfig.itemDropLeft[1] = newIDX end
@@ -1134,39 +1164,33 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
             
             if geigerRunning then
                 ImGui.TextColored(0,255,0,255, "● Running")
+                local signalText = "Tidak ada"
+                if geigerVars.currentRing == geigerVars.red then signalText = "Merah"
+                elseif geigerVars.currentRing == geigerVars.yellow then signalText = "Kuning"
+                elseif geigerVars.currentRing == geigerVars.green then signalText = "Hijau"
+                end
+                ImGui.Text("Sinyal: " .. signalText)
+                ImGui.Text("Total Item: " .. geigerVars.totalFound)
+                -- Tampilkan rincian item
+                if geigerVars.listFound[1] > 0 then ImGui.Text("Stuff: " .. geigerVars.listFound[1]) end
+                if geigerVars.listFound[2] > 0 then ImGui.Text("Crystal Black: " .. geigerVars.listFound[2]) end
+                if geigerVars.listFound[3] > 0 then ImGui.Text("Crystal Green: " .. geigerVars.listFound[3]) end
+                if geigerVars.listFound[4] > 0 then ImGui.Text("Crystal Red: " .. geigerVars.listFound[4]) end
+                if geigerVars.listFound[5] > 0 then ImGui.Text("Crystal White: " .. geigerVars.listFound[5]) end
+                if geigerVars.listFound[6] > 0 then ImGui.Text("Chemical Haunted: " .. geigerVars.listFound[6]) end
+                if geigerVars.listFound[7] > 0 then ImGui.Text("Chemical Radioactive: " .. geigerVars.listFound[7]) end
+                if geigerVars.listFound[8] > 0 then ImGui.Text("Growtoken: " .. geigerVars.listFound[8]) end
+                if geigerVars.listFound[9] > 0 then ImGui.Text("Battery: " .. geigerVars.listFound[9]) end
+                if geigerVars.listFound[10] > 0 then ImGui.Text("D Battery: " .. geigerVars.listFound[10]) end
+                if geigerVars.listFound[11] > 0 then ImGui.Text("Charger: " .. geigerVars.listFound[11]) end
             else
                 ImGui.TextColored(255,255,255,100, "○ Stopped")
             end
             
-            -- Tampilkan sinyal saat ini
-            local signalText = "Tidak ada"
-            if geigerVars.currentRing == geigerVars.red then signalText = "Merah"
-            elseif geigerVars.currentRing == geigerVars.yellow then signalText = "Kuning"
-            elseif geigerVars.currentRing == geigerVars.green then signalText = "Hijau"
-            end
-            ImGui.Text("Sinyal: " .. signalText)
-            
-            -- Tampilkan total item ditemukan
-            ImGui.Text("Total Item: " .. geigerVars.totalFound)
-            
-            -- Tampilkan rincian item
-            if geigerVars.listFound[1] > 0 then ImGui.Text("Stuff: " .. geigerVars.listFound[1]) end
-            if geigerVars.listFound[2] > 0 then ImGui.Text("Crystal Black: " .. geigerVars.listFound[2]) end
-            if geigerVars.listFound[3] > 0 then ImGui.Text("Crystal Green: " .. geigerVars.listFound[3]) end
-            if geigerVars.listFound[4] > 0 then ImGui.Text("Crystal Red: " .. geigerVars.listFound[4]) end
-            if geigerVars.listFound[5] > 0 then ImGui.Text("Crystal White: " .. geigerVars.listFound[5]) end
-            if geigerVars.listFound[6] > 0 then ImGui.Text("Chemical Haunted: " .. geigerVars.listFound[6]) end
-            if geigerVars.listFound[7] > 0 then ImGui.Text("Chemical Radioactive: " .. geigerVars.listFound[7]) end
-            if geigerVars.listFound[8] > 0 then ImGui.Text("Growtoken: " .. geigerVars.listFound[8]) end
-            if geigerVars.listFound[9] > 0 then ImGui.Text("Battery: " .. geigerVars.listFound[9]) end
-            if geigerVars.listFound[10] > 0 then ImGui.Text("D Battery: " .. geigerVars.listFound[10]) end
-            if geigerVars.listFound[11] > 0 then ImGui.Text("Charger: " .. geigerVars.listFound[11]) end
-            
             ImGui.Columns(1)
             
             ImGui.Separator()
-            -- Tombol Start/Stop di bawah
-            if not geigerRunning and not running and not pthtRunning and not vendSmartRunning and not grinderRunning then
+            if not geigerRunning and not running and not pthtRunning and not vendSmartRunning and not grinderRunning and not harvestRunning then
                 if ImGui.Button("Start Auto Geiger##geiger") then
                     runAutoGeiger()
                 end
@@ -1178,44 +1202,66 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
                 ImGui.Text("Sedang " .. currentAction .. "...")
             end
         end
-        -- Header AUTO GRINDER
+        
+        -- ==================== AUTO GRINDER ====================
         if ImGui.CollapsingHeader("AUTO GRINDER") then
-            ImGui.Text("Auto Grinder dengan manajemen inventory")
-            ImGui.Separator()
-
-            local changedItem, newItem = ImGui.InputInt("ID Item Grind", grinderConfig.itemID, 1, 100)
+            ImGui.Columns(2, "col_grinder", false)
+            
+            -- Kolom kiri: Settings
+            ImGui.Text("Settings");
+            ImGui.Separator();
+            
+            local changedItem, newItem = ImGui.InputInt("ID Item Grind##grinder", grinderConfig.itemID, 1, 100)
             if changedItem then grinderConfig.itemID = newItem end
 
-            local changedResult, newResult = ImGui.InputInt("ID Item Hasil", grinderConfig.resultID, 1, 100)
+            local changedResult, newResult = ImGui.InputInt("ID Item Hasil##grinder", grinderConfig.resultID, 1, 100)
             if changedResult then grinderConfig.resultID = newResult end
 
-            local changedDelay, newDelay = ImGui.InputInt("Delay (ms)", grinderConfig.delay, 10, 100)
+            local changedDelay, newDelay = ImGui.InputInt("Delay (ms)##grinder", grinderConfig.delay, 10, 100)
             if changedDelay then grinderConfig.delay = newDelay end
 
-            local changedDropX, newDropX = ImGui.InputInt("Drop X Awal", grinderConfig.dropX, 1, 10)
+            local changedDropX, newDropX = ImGui.InputInt("Drop X Awal##grinder", grinderConfig.dropX, 1, 10)
             if changedDropX then grinderConfig.dropX = newDropX end
-            local changedDropY, newDropY = ImGui.InputInt("Drop Y Awal", grinderConfig.dropY, 1, 10)
+            local changedDropY, newDropY = ImGui.InputInt("Drop Y Awal##grinder", grinderConfig.dropY, 1, 10)
             if changedDropY then grinderConfig.dropY = newDropY end
 
-            local changedMax, newMax = ImGui.InputInt("Max Attempts", grinderConfig.maxAttempts, 1, 10)
+            local changedMax, newMax = ImGui.InputInt("Max Attempts##grinder", grinderConfig.maxAttempts, 1, 10)
             if changedMax then grinderConfig.maxAttempts = newMax end
-
+            
+            ImGui.NextColumn()
+            
+            -- Kolom kanan: Status
+            ImGui.Text("Status");
+            ImGui.Separator();
+            
+            if grinderRunning then
+                ImGui.TextColored(0,255,0,255, "● Running")
+                -- Tampilkan progress jika ada
+                ImGui.Text("Progress: " .. (grinderVars.counter or 0) .. "/" .. grinderConfig.maxAttempts)
+            else
+                ImGui.TextColored(255,255,255,100, "○ Stopped")
+            end
+            
+            ImGui.Columns(1)
+            
             ImGui.Separator()
-            if not grinderRunning and not running and not pthtRunning and not geigerRunning then
-                if ImGui.Button("Start Auto Grinder") then
+            if not grinderRunning and not running and not pthtRunning and not vendSmartRunning and not geigerRunning and not harvestRunning then
+                if ImGui.Button("Start Auto Grinder##grinder") then
                     runAutoGrinder()
                 end
             else
-                if ImGui.Button("Stop") then
+                if ImGui.Button("Stop##grinder") then
                     stopAction()
                 end
                 ImGui.SameLine()
                 ImGui.Text("Sedang " .. currentAction .. "...")
             end
         end
+        
 
-        ImGui.End()
+        
     end
+    ImGui.End()
 end)
 
 
