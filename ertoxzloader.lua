@@ -77,31 +77,7 @@ local grinderStop = false
 local grinderVars = {
 }
 
--- Fitur PNB (Place and Break) - dari Lantas
-local pnbConfig = {
-    MagBG = 14,
-    BreakID = 15460,
-    AntiLag = false,
-    RemoveAnimation = false,
-    AutoConsume = false,
-    AutoCollectGems = true,
-    AutoBuyDL = true,
-    AutoSuck = false,
-    UseMneck = false,
-    ConsumableID = {4604, 1474, 1056},
-}
-local pnbRunning = false
-local pnbStop = false
-local pnbVars = {
-    posx = 0,
-    posy = 0,
-    facing = "right",
-    cheat = false,
-    limit = 0,
-    gems = 0,
-    remoteTaken = false,
-    currentMag = 1,
-}
+
 -- ==================== FUNGSI UMUM ====================
 local function getWorldSize()
     if worldType == "normal" then
@@ -962,155 +938,6 @@ local function runAutoGrinder()
     end)
 end
 
--- ==================== FUNGSI PNB ====================
-local function pnbBuyDL(x, y)
-    if inv(1796) >= 100 then
-        SendPacket(2, "action|dialog_return\ndialog_name|telephone\nnum|53785|\nx|" .. x .. "|\ny|" .. y .. "|\nbuttonClicked|bglconvert")
-        Sleep(50)
-    end
-    SendPacket(2, "action|dialog_return\ndialog_name|telephone\nnum|53785|\nx|" .. x .. "|\ny|" .. y .. "|\nbuttonClicked|dlconvert")
-    Sleep(30)
-end
-
-local function pnbGetMagplant()
-    local Found = {}
-    for x = 0, 199 do
-        for y = 0, 199 do
-            local tile = GetTile(x, y)
-            if tile and tile.fg == 5638 and tile.bg == pnbConfig.MagBG then
-                table.insert(Found, {x, y})
-            end
-        end
-    end
-    return Found
-end
-
-local function pnbTakeRemote()
-    local mags = pnbGetMagplant()
-    if #mags == 0 then
-        LogToConsole("`4[Tidak ada magplant PNB]")
-        return false
-    end
-    
-    if pnbVars.currentMag > #mags then pnbVars.currentMag = 1 end
-    local m = mags[pnbVars.currentMag]
-    
-    LogToConsole("`7[Mengambil remote PNB #" .. pnbVars.currentMag .. "]")
-    SendPacketRaw(false, {type = 0, state = 32, x = m[1] * 32, y = m[2] * 32})
-    Sleep(500)
-    SendPacketRaw(false, {type = 3, value = 32, px = m[1], py = m[2], x = m[1] * 32, y = m[2] * 32})
-    Sleep(500)
-    SendPacket(2, "action|dialog_return\ndialog_name|magplant_edit\nx|" .. m[1] .. "|\ny|" .. m[2] .. "|\nbuttonClicked|getRemote")
-    Sleep(500)
-    
-    FindPath(pnbVars.posx, pnbVars.posy)
-    Sleep(600)
-    return true
-end
-
--- ==================== FUNGSI UTAMA PNB ====================
-local function runPNB()
-    if pnbRunning then return end
-    pnbRunning = true
-    pnbStop = false
-    currentAction = "pnb"
-    
-    -- Simpan posisi awal
-    pnbVars.posx = math.floor(GetLocal().pos.x / 32)
-    pnbVars.posy = math.floor(GetLocal().pos.y / 32)
-    pnbVars.facing = GetLocal().isleft and "left" or "right"
-    pnbVars.gems = GetPlayerItems().gems
-    pnbVars.cheat = false
-    pnbVars.limit = 0
-    pnbVars.remoteTaken = false
-    pnbVars.currentMag = 1
-    
-    local worldName = GetWorld().name
-    
-    LogToConsole(string.format("`2[PNB dimulai] Posisi (%d,%d) arah %s", pnbVars.posx, pnbVars.posy, pnbVars.facing))
-    
-    RunThread(function()
-        while not pnbStop do
-            -- Cek world
-            if GetWorld() == nil or GetWorld().name ~= worldName then
-                LogToConsole("`7[Warp ke " .. worldName .. "]")
-                SendPacket(3, "action|join_request\nname|" .. worldName .. "|\ninvitedWorld|0")
-                Sleep(5000)
-                pnbVars.remoteTaken = false
-            end
-            
-            -- Ambil remote jika belum
-            if not pnbVars.remoteTaken then
-                if pnbTakeRemote() then
-                    pnbVars.remoteTaken = true
-                else
-                    Sleep(1000)
-                end
-                goto continue
-            end
-            
-            -- Aktifkan cheat jika belum
-            if not pnbVars.cheat then
-                local targetX = pnbVars.posx + (pnbVars.facing == "right" and 1 or -1)
-                SendPacketRaw(false, {type = 0, state = (pnbVars.facing == "right" and 32 or 48), x = targetX * 32 - 32, y = pnbVars.posy * 32})
-                Sleep(400)
-                SendPacket(2, "action|dialog_return\ndialog_name|cheats\ncheck_autofarm|1\ncheck_bfg|1\ncheck_lonely|" .. (pnbConfig.AntiLag and 1 or 1) .. "\ncheck_gems|" .. (pnbConfig.AutoCollectGems and 1 or 0))
-                Sleep(400)
-                pnbVars.cheat = true
-            end
-            
-            -- Auto Buy DL
-            if pnbConfig.AutoBuyDL and GetPlayerItems().gems >= pnbVars.gems + 110000 then
-                pnbBuyDL(pnbVars.posx, pnbVars.posy)
-                pnbVars.gems = GetPlayerItems().gems
-            end
-            
-            -- Auto Consume (jika diaktifkan)
-            if pnbConfig.AutoConsume then
-                -- Implementasi auto consume bisa ditambahkan di sini
-            end
-            
-            -- Cek block di samping
-            local targetX = pnbVars.posx + (pnbVars.facing == "right" and 1 or -1)
-            local targetY = pnbVars.posy + (pnbConfig.UseMneck and 1 or 0)
-            local tile = GetTile(targetX, targetY)
-            if tile and tile.fg == pnbConfig.BreakID then
-                pnbVars.limit = 0
-            else
-                pnbVars.limit = pnbVars.limit + 1
-            end
-            
-            -- Ganti remote jika limit tercapai
-            if pnbVars.limit >= 30 then
-                LogToConsole("`7[Block kosong, ganti remote]")
-                pnbVars.currentMag = pnbVars.currentMag + 1
-                pnbVars.remoteTaken = false
-                pnbVars.cheat = false
-                pnbVars.limit = 0
-            end
-            
-            ::continue::
-            Sleep(1500)
-        end
-        
-        pnbRunning = false
-        LogToConsole("`2[PNB dihentikan]")
-    end)
-end
-
-local function startPNB()
-    if pnbRunning then return end
-    pnbRunning = true
-    pnbStop = false
-    runPNB()
-end
-
-local function stopPNB()
-    if pnbRunning then
-        pnbStop = true
-        pnbRunning = false
-    end
-end
 
 -- =========================== StopAction ==============================
 local function stopAction()
@@ -1118,7 +945,6 @@ local function stopAction()
     if pthtRunning then pthtStop = true; pthtRunning = false end
     if geigerRunning then geigerStop = true; geigerRunning = false end
     if grinderRunning then grinderStop = true; grinderRunning = false end
-    if pnbRunning then pnbStop = true; pnbRunning = false end
 end
 
 -- =========================== GUI UMUM ==============================
@@ -1333,53 +1159,6 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
             end
         end
 
-         -- Header PNB (Place and Break)
-        if ImGui.CollapsingHeader("PNB (Place & Break)") then
-            ImGui.Text("Settings PNB")
-            ImGui.Separator()
-            
-            local changedBG, newBG = ImGui.InputInt("Background Magplant##pnb", pnbConfig.MagBG, 1, 100)
-            if changedBG then pnbConfig.MagBG = newBG end
-            
-            local changedBreak, newBreak = ImGui.InputInt("ID Block##pnb", pnbConfig.BreakID, 1, 100)
-            if changedBreak then pnbConfig.BreakID = newBreak end
-            
-            local changedAnti, newAnti = ImGui.Checkbox("Anti Lag##pnb", pnbConfig.AntiLag)
-            if changedAnti then pnbConfig.AntiLag = newAnti end
-            
-            local changedRemove, newRemove = ImGui.Checkbox("Remove Animation##pnb", pnbConfig.RemoveAnimation)
-            if changedRemove then pnbConfig.RemoveAnimation = newRemove end
-            
-            local changedConsume, newConsume = ImGui.Checkbox("Auto Consume##pnb", pnbConfig.AutoConsume)
-            if changedConsume then pnbConfig.AutoConsume = newConsume end
-            
-            local changedCollect, newCollect = ImGui.Checkbox("Auto Collect Gems##pnb", pnbConfig.AutoCollectGems)
-            if changedCollect then pnbConfig.AutoCollectGems = newCollect end
-            
-            local changedBuy, newBuy = ImGui.Checkbox("Auto Buy DL##pnb", pnbConfig.AutoBuyDL)
-            if changedBuy then pnbConfig.AutoBuyDL = newBuy end
-            
-            local changedSuck, newSuck = ImGui.Checkbox("Auto Suck##pnb", pnbConfig.AutoSuck)
-            if changedSuck then pnbConfig.AutoSuck = newSuck end
-            
-            local changedMneck, newMneck = ImGui.Checkbox("Use Mneck##pnb", pnbConfig.UseMneck)
-            if changedMneck then pnbConfig.UseMneck = newMneck end
-            
-            ImGui.Separator()
-            ImGui.Text("Status: " .. (pnbRunning and "`2Running" or "`4Idle"))
-            
-            if not pnbRunning and not running and not pthtRunning then
-                if ImGui.Button("Start PNB##pnb", 100, 25) then
-                    startPNB()
-                end
-            else
-                if ImGui.Button("Stop##pnb", 100, 25) then
-                    stopAction()
-                end
-                ImGui.SameLine()
-                ImGui.Text("Sedang " .. currentAction .. "...")
-            end
-        end
 
         ImGui.End()
     end
