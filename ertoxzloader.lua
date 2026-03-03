@@ -74,8 +74,7 @@ local grinderConfig = {
 }
 local grinderRunning = false
 local grinderStop = false
-local grinderVars = {
-}
+local grinderVars = {}
 
 
 -- ==================== FUNGSI UMUM ====================
@@ -938,16 +937,31 @@ local function runAutoGrinder()
     end)
 end
 
-
 -- =========================== StopAction ==============================
 local function stopAction()
-    if running then stopRequested = true; running = false end
-    if pthtRunning then pthtStop = true; pthtRunning = false end
-    if geigerRunning then geigerStop = true; geigerRunning = false end
-    if grinderRunning then grinderStop = true; grinderRunning = false end
+    if running then
+        stopRequested = true
+        running = false
+    end
+    if pthtRunning then
+        pthtStop = true
+        pthtRunning = false
+    end
+    if geigerRunning then
+        geigerStop = true
+        geigerRunning = false
+    end
+    if grinderRunning then
+        grinderStop = true
+        grinderRunning = false
+    end
+    if harvestRunning then
+        harvestStop = true
+        harvestRunning = false
+    end
 end
 
--- =========================== GUI UMUM ==============================
+-- ==================== GUI UTAMA (COLLAPSING HEADER) ====================
 AddHook("OnDraw", "ErtoxzGUI", function(dt)
     if ImGui.Begin("ERTOXZ LOADER") then
         -- Header PUT / BREK PLAT
@@ -1159,9 +1173,9 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
             end
         end
 
-
         ImGui.End()
     end
 end)
+
 
 LogToConsole("ERTOXZ LOADER siap. Klik header untuk membuka fitur.")
