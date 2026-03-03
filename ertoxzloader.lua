@@ -1202,12 +1202,13 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
                 ImGui.Text("Belum ada data. Klik Scan.")
             else
                 -- Tabel dengan kolom
-                ImGui.Columns(5, "floatingTable", true)
+                ImGui.Columns(6, "floatingTable", true)
                 ImGui.Text("ID"); ImGui.NextColumn()
                 ImGui.Text("Nama"); ImGui.NextColumn()
                 ImGui.Text("X"); ImGui.NextColumn()
                 ImGui.Text("Y"); ImGui.NextColumn()
                 ImGui.Text("Jumlah"); ImGui.NextColumn()
+                ImGui.Text("Aksi"); ImGui.NextColumn()
                 ImGui.Separator()
                 
                 for i, item in ipairs(floatingItems) do
@@ -1216,6 +1217,13 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
                     ImGui.Text(tostring(item.x)); ImGui.NextColumn()
                     ImGui.Text(tostring(item.y)); ImGui.NextColumn()
                     ImGui.Text(tostring(item.amount)); ImGui.NextColumn()
+                    if ImGui.Button("Teleport##" .. i, 60, 20) then
+                        RunThread(function()
+                            FindPath(item.x, item.y, pthtConfig.pathfinderDelay or 520)
+                            LogToConsole(string.format("`2Teleport ke (%d, %d)", item.x, item.y))
+                        end)
+                    end
+                    ImGui.NextColumn()
                 end
                 ImGui.Columns(1)
             end
