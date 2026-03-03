@@ -1091,52 +1091,93 @@ AddHook("OnDraw", "ErtoxzGUI", function(dt)
             end
         end
 
-        -- Header AUTO GEIGER
+                -- Header AUTO GEIGER
         if ImGui.CollapsingHeader("AUTO GEIGER") then
-            ImGui.Text("Auto Geiger Scanner")
-            ImGui.Separator()
-
-            local changedWeb, newWeb = ImGui.InputText("Webhook URL", geigerConfig.webhook, 100)
+            ImGui.Columns(2, "geigerCol", false)
+            
+            -- Kolom kiri: Settings
+            ImGui.Text("Settings");
+            ImGui.Separator();
+            
+            local changedWeb, newWeb = ImGui.InputText("Webhook URL##geiger", geigerConfig.webhook, 200)
             if changedWeb then geigerConfig.webhook = newWeb end
-
-            local changedWG, newWG = ImGui.InputText("World Geiger", geigerConfig.worldGeiger, 30)
+            
+            local changedWG, newWG = ImGui.InputText("World Geiger##geiger", geigerConfig.worldGeiger, 30)
             if changedWG then geigerConfig.worldGeiger = newWG end
-
-            local changedWS, newWS = ImGui.InputText("World Save", geigerConfig.worldSave, 30)
+            
+            local changedWS, newWS = ImGui.InputText("World Save##geiger", geigerConfig.worldSave, 30)
             if changedWS then geigerConfig.worldSave = newWS end
-
-            ImGui.Text("Alive Geiger Position:")
-            local changedAGX, newAGX = ImGui.InputInt("X", geigerConfig.aliveGeigerPos[1], 1, 10)
+            
+            ImGui.Text("Alive Geiger Position:");
+            local changedAGX, newAGX = ImGui.InputInt("X##geigerAG", geigerConfig.aliveGeigerPos[1], 1, 10)
             if changedAGX then geigerConfig.aliveGeigerPos[1] = newAGX end
-            local changedAGY, newAGY = ImGui.InputInt("Y", geigerConfig.aliveGeigerPos[2], 1, 10)
+            local changedAGY, newAGY = ImGui.InputInt("Y##geigerAG", geigerConfig.aliveGeigerPos[2], 1, 10)
             if changedAGY then geigerConfig.aliveGeigerPos[2] = newAGY end
-
-            ImGui.Text("Dead Drop Left:")
-            local changedDDX, newDDX = ImGui.InputInt("X", geigerConfig.deadDropLeft[1], 1, 10)
+            
+            ImGui.Text("Dead Drop Left:");
+            local changedDDX, newDDX = ImGui.InputInt("X##geigerDD", geigerConfig.deadDropLeft[1], 1, 10)
             if changedDDX then geigerConfig.deadDropLeft[1] = newDDX end
-            local changedDDY, newDDY = ImGui.InputInt("Y", geigerConfig.deadDropLeft[2], 1, 10)
+            local changedDDY, newDDY = ImGui.InputInt("Y##geigerDD", geigerConfig.deadDropLeft[2], 1, 10)
             if changedDDY then geigerConfig.deadDropLeft[2] = newDDY end
-
-            ImGui.Text("Item Drop Left:")
-            local changedIDX, newIDX = ImGui.InputInt("X", geigerConfig.itemDropLeft[1], 1, 10)
+            
+            ImGui.Text("Item Drop Left:");
+            local changedIDX, newIDX = ImGui.InputInt("X##geigerID", geigerConfig.itemDropLeft[1], 1, 10)
             if changedIDX then geigerConfig.itemDropLeft[1] = newIDX end
-            local changedIDY, newIDY = ImGui.InputInt("Y", geigerConfig.itemDropLeft[2], 1, 10)
+            local changedIDY, newIDY = ImGui.InputInt("Y##geigerID", geigerConfig.itemDropLeft[2], 1, 10)
             if changedIDY then geigerConfig.itemDropLeft[2] = newIDY end
-
+            
+            ImGui.NextColumn()
+            
+            -- Kolom kanan: Status
+            ImGui.Text("Status");
+            ImGui.Separator();
+            
+            if geigerRunning then
+                ImGui.TextColored(0,255,0,255, "● Running")
+            else
+                ImGui.TextColored(255,255,255,100, "○ Stopped")
+            end
+            
+            -- Tampilkan sinyal saat ini
+            local signalText = "Tidak ada"
+            if geigerVars.currentRing == geigerVars.red then signalText = "Merah"
+            elseif geigerVars.currentRing == geigerVars.yellow then signalText = "Kuning"
+            elseif geigerVars.currentRing == geigerVars.green then signalText = "Hijau"
+            end
+            ImGui.Text("Sinyal: " .. signalText)
+            
+            -- Tampilkan total item ditemukan
+            ImGui.Text("Total Item: " .. geigerVars.totalFound)
+            
+            -- Tampilkan rincian item
+            if geigerVars.listFound[1] > 0 then ImGui.Text("Stuff: " .. geigerVars.listFound[1]) end
+            if geigerVars.listFound[2] > 0 then ImGui.Text("Crystal Black: " .. geigerVars.listFound[2]) end
+            if geigerVars.listFound[3] > 0 then ImGui.Text("Crystal Green: " .. geigerVars.listFound[3]) end
+            if geigerVars.listFound[4] > 0 then ImGui.Text("Crystal Red: " .. geigerVars.listFound[4]) end
+            if geigerVars.listFound[5] > 0 then ImGui.Text("Crystal White: " .. geigerVars.listFound[5]) end
+            if geigerVars.listFound[6] > 0 then ImGui.Text("Chemical Haunted: " .. geigerVars.listFound[6]) end
+            if geigerVars.listFound[7] > 0 then ImGui.Text("Chemical Radioactive: " .. geigerVars.listFound[7]) end
+            if geigerVars.listFound[8] > 0 then ImGui.Text("Growtoken: " .. geigerVars.listFound[8]) end
+            if geigerVars.listFound[9] > 0 then ImGui.Text("Battery: " .. geigerVars.listFound[9]) end
+            if geigerVars.listFound[10] > 0 then ImGui.Text("D Battery: " .. geigerVars.listFound[10]) end
+            if geigerVars.listFound[11] > 0 then ImGui.Text("Charger: " .. geigerVars.listFound[11]) end
+            
+            ImGui.Columns(1)
+            
             ImGui.Separator()
-            if not geigerRunning and not running and not pthtRunning and not grinderRunning then
-                if ImGui.Button("Start Auto Geiger") then
+            -- Tombol Start/Stop di bawah
+            if not geigerRunning and not running and not pthtRunning and not vendSmartRunning and not grinderRunning then
+                if ImGui.Button("Start Auto Geiger##geiger") then
                     runAutoGeiger()
                 end
             else
-                if ImGui.Button("Stop") then
+                if ImGui.Button("Stop##geiger") then
                     stopAction()
                 end
                 ImGui.SameLine()
                 ImGui.Text("Sedang " .. currentAction .. "...")
             end
         end
-
         -- Header AUTO GRINDER
         if ImGui.CollapsingHeader("AUTO GRINDER") then
             ImGui.Text("Auto Grinder dengan manajemen inventory")
