@@ -950,14 +950,11 @@ local function runAutoGrinder()
 end
 
 -- ==================== FUNGSI ROTASI PTHT & PNB ====================
-local function startRotation()
+local function runRotation()
     if rotationRunning then return end
-    rotationConfig.mode = rotationConfig.startMode   -- set mode sesuai pilihan
-    rotationConfig.currentLoop = 0
     rotationRunning = true
     rotationStop = false
-    rotationThread = RunThread(function() runRotation() end)
-end
+    currentAction = "rotasi"
 
     -- Reset counter
     local function runRotation()
@@ -1015,9 +1012,11 @@ end
 
 local function startRotation()
     if rotationRunning then return end
+    rotationConfig.mode = rotationConfig.startMode   -- set mode sesuai pilihan
+    rotationConfig.currentLoop = 0
     rotationRunning = true
     rotationStop = false
-    RunThread(function() runRotation() end)
+    rotationThread = RunThread(function() runRotation() end)
 end
 
 local function stopRotation()
