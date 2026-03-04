@@ -1,11 +1,10 @@
--- ERTOXZ Loader - Multi-File Remote Loader
--- Simpan sebagai "ertoxz_loader.lua"
+-- ERTOXZ Loader - Main Loader (dipanggil dari loader super singkat)
 
 -- ==================== KONFIGURASI ====================
--- GANTI URL INI DENGAN RAW URL REPOSITORY KAMU
+-- URL dasar untuk mengambil file script per fitur
 local baseUrl = "https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/"
 
--- ==================== FUNGSI LOADER ====================
+-- ==================== FUNGSI AMBIL DAN JALANKAN SCRIPT ====================
 local function loadAndRunScript(fileName)
     local url = baseUrl .. fileName
     LogToConsole("`2Mengambil " .. fileName .. " dari server...")
@@ -31,7 +30,6 @@ local function loadAndRunScript(fileName)
     else
         local status = response and response.status or "no response"
         LogToConsole("`4Gagal mengambil " .. fileName .. " (status: " .. tostring(status) .. ")")
-        LogToConsole("`7Pastikan URL benar: " .. url)
     end
 end
 
@@ -45,24 +43,22 @@ AddHook("OnDraw", "ErtoxzLoaderGUI", function(dt)
         if ImGui.Button("PUT / BREAK PLAT", 200, 40) then
             loadAndRunScript("putbreak.lua")
         end
-        
+        ImGui.SameLine()
         if ImGui.Button("AUTO PTHT", 200, 40) then
             loadAndRunScript("ptht.lua")
         end
-        
         if ImGui.Button("AUTO GEIGER", 200, 40) then
             loadAndRunScript("geiger.lua")
         end
-        
+        ImGui.SameLine()
         if ImGui.Button("AUTO GRINDER", 200, 40) then
             loadAndRunScript("grinder.lua")
         end
         
         ImGui.Separator()
-        ImGui.Text("Status: " .. (response and "Online" or "Menunggu"))
+        ImGui.Text("Base URL: " .. baseUrl)
     end
     ImGui.End()
 end)
 
 LogToConsole("`2ERTOXZ Loader siap. Klik tombol untuk menjalankan script.")
-LogToConsole("`7Base URL: " .. baseUrl)
