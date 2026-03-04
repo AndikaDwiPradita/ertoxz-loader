@@ -29,16 +29,16 @@ AddHook("OnDraw", "ErtoxzLoaderGUI", function(dt)
         ImGui.Separator()
         
         if ImGui.Button("PUT / BREAK PLAT", 200, 40) then
-            loadAndRunScript("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/putbreak.lua")
+            loadAndRunScript("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/refs/heads/main/putbreak.lua")
         end
         if ImGui.Button("AUTO PTHT", 200, 40) then
-            loadAndRunScript("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/ptht.lua")
+            loadAndRunScript("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/refs/heads/main/ptht.lua")
         end
         if ImGui.Button("AUTO GEIGER", 200, 40) then
-            loadAndRunScript("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/geiger.lua")
+            loadAndRunScript("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/refs/heads/main/geiger.lua")
         end
         if ImGui.Button("AUTO GRINDER", 200, 40) then
-            loadAndRunScript("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/grinder.lua")
+            loadAndRunScript("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/refs/heads/main/grinder.lua")
         end
     end
     ImGui.End()
