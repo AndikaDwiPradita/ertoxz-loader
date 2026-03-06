@@ -51,7 +51,7 @@ AddHook("OnDraw", "ErtoxzGUI", function()
             run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/surg.lua")
         end
         if ImGui.Button("World 2 World", 200, 40) then
-            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/grinder.lua")
+            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/wtw.lua")
         end
     end
     ImGui.End()
