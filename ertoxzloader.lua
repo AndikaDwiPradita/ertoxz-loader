@@ -3,10 +3,10 @@
 
 -- Daftar fitur dan URL-nya
 local features = {
-    { name = "PUT / BREAK PLAT", url = "https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/putbreak.lua" },
-    { name = "AUTO PTHT",         url = "https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/ptht.lua" },
-    { name = "AUTO GEIGER",       url = "https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/geiger.lua" },
-    { name = "AUTO GRINDER",      url = "https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/grinder.lua" },
+    { name = "PUT / BREAK PLAT", url = "https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/refs/heads/main/putbreak.lua" },
+    { name = "AUTO PTHT",         url = "https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/refs/heads/main/ptht.lua" },
+    { name = "AUTO GEIGER",       url = "https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/refs/heads/main/geiger.lua" },
+    { name = "AUTO GRINDER",      url = "https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/refs/heads/main/grinder.lua" },
 }
 
 -- Fungsi untuk mengambil dan menjalankan script
