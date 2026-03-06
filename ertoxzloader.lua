@@ -26,7 +26,30 @@ AddHook("OnDraw", "ErtoxzGUI", function()
         if ImGui.Button("AUTO ARROZ", 200, 40) then
             run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/arroz.lua")
         end
-            
+        if ImGui.Button("AUTO COMBINE", 200, 40) then
+            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/combine.lua")
+        end
+        if ImGui.Button("AUTO HT PROVIDER", 200, 40) then
+            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/harvestprovider.lua")
+        end
+        if ImGui.Button("AUTO PnB", 200, 40) then
+            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/pnb.lua")
+        end
+        if ImGui.Button("AUTO SB", 200, 40) then
+            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/sb.lua")
+        end
+        if ImGui.Button("AUTO SHATTER", 200, 40) then
+            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/shatter.lua")
+        end
+        if ImGui.Button("AUTO SPTHT", 200, 40) then
+            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/sptht.lua")
+        end
+        if ImGui.Button("AUTO SURG", 200, 40) then
+            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/surg.lua")
+        end
+        if ImGui.Button("World 2 World", 200, 40) then
+            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/grinder.lua")
+        end
     end
     ImGui.End()
 end)
