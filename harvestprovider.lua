@@ -141,4 +141,4 @@ RunThread(function()
     end
 end)
 
-Log("Provider Harvester loaded. Use GUI to start/stop.")
+LogToConsole("Provider Harvester loaded. Use GUI to start/stop.")
