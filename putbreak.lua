@@ -1,4 +1,4 @@
--- ==================== PUT/BREAK PLAT (DENGAN SAVE/LOAD) ====================
+-- ==================== PUT/BREAK PLAT (DENGAN KONTROL START/STOP) ====================
 local Settings = {
     PlatID = 7520,
     Delay = 3000,
@@ -10,7 +10,113 @@ local Settings = {
 }
 local running = false
 local stopRequested = false
+local currentAction = ""  -- "put" atau "break"
 local currentStatus = "Idle"
+
+-- Fungsi asli
+local function getWorldSize()
+    if Settings.WorldType == "normal" then return 100, 60
+    elseif Settings.WorldType == "nether" then return 150, 150
+    else return 200, 200 end
+end
+
+local function inv(id)
+    for _, item in pairs(GetInventory()) do
+        if item.id == id then return item.amount end
+    end
+    return 0
+end
+
+-- Fungsi untuk Put
+local function runPut()
+    currentAction = "put"
+    ChangeValue("[C] Modfly", true)
+    ChangeValue("[C] Ghost mode", true)
+    local put = Settings.Mray and 10 or 1
+    local sizeX, sizeY = getWorldSize()
+    while running and not stopRequested do
+        for y = sizeY - 2, 0, -1 do
+            if not running or stopRequested then break end
+            for x1 = 0, put - 1 do
+                if not running or stopRequested then break end
+                for x2 = 0, (sizeX / put) - 1 do
+                    if not running or stopRequested then break end
+                    local x = x2 * put + x1
+                    local tile = GetTile(x, y)
+                    if tile and tile.fg == 0 and y % 2 == 1 then
+                        FindPath(x, y - 1, 520)
+                        Sleep(1)
+                        SendPacketRaw(false, {state = 32, x = x * 32 - 32, y = y * 32})
+                        Sleep(1)
+                        SendPacketRaw(false, {type = 3, value = Settings.PlatID, px = x, py = y, x = x * 32, y = y * 32})
+                        Sleep(Settings.Delay)
+                    end
+                end
+            end
+        end
+        if not stopRequested then Sleep(1000) end
+    end
+    running = false
+    currentStatus = "Stopped"
+    LogToConsole("Put Plat stopped")
+end
+
+-- Fungsi untuk Break
+local function runBreak()
+    currentAction = "break"
+    ChangeValue("[C] Modfly", true)
+    local put = Settings.Mray and 10 or 1
+    local sizeX, sizeY = getWorldSize()
+    while running and not stopRequested do
+        for y = sizeY - 2, 0, -1 do
+            if not running or stopRequested then break end
+            for x1 = 0, put - 1 do
+                if not running or stopRequested then break end
+                for x2 = 0, (sizeX / put) - 1 do
+                    if not running or stopRequested then break end
+                    local x = x2 * put + x1
+                    local tile = GetTile(x, y)
+                    if tile and tile.fg == Settings.PlatID then
+                        FindPath(x, y, 520)
+                        Sleep(1)
+                        while not stopRequested and GetTile(x, y).fg == Settings.PlatID do
+                            SendPacketRaw(false, {type = 3, value = 18, px = x, py = y, x = x * 32, y = y * 32})
+                            Sleep(Settings.Delay)
+                        end
+                    end
+                end
+            end
+        end
+        if not stopRequested then Sleep(1000) end
+    end
+    running = false
+    currentStatus = "Stopped"
+    LogToConsole("Break Plat stopped")
+end
+
+-- Fungsi start/stop
+local function startPut()
+    if running then return end
+    running = true
+    stopRequested = false
+    currentStatus = "Running (Put)"
+    RunThread(runPut)
+end
+
+local function startBreak()
+    if running then return end
+    running = true
+    stopRequested = false
+    currentStatus = "Running (Break)"
+    RunThread(runBreak)
+end
+
+local function stopAction()
+    if running then
+        stopRequested = true
+        currentStatus = "Stopping..."
+    end
+end
 
 -- Fungsi Save/Load
 local function SaveSettings()
@@ -24,7 +130,7 @@ local function SaveSettings()
         file:write("PosX=" .. Settings.PosX .. "\n")
         file:write("PosY=" .. Settings.PosY .. "\n")
         file:close()
-        LogToConsole("`2PutBreak settings saved.")
+        LogToConsole("`2Settings saved.")
     else
         LogToConsole("`4Failed to save settings.")
     end
@@ -52,8 +158,6 @@ local function LoadSettings()
         LogToConsole("`3No settings file found.")
     end
 end
-
--- (Fungsi asli runPut, runBreak di sini)
 
 -- ==================== GUI ====================
 AddHook("OnDraw", "PutBreakGUI", function(dt)
@@ -102,6 +206,8 @@ AddHook("OnDraw", "PutBreakGUI", function(dt)
             if ImGui.BeginTabItem("Status") then
                 ImGui.Text("Current Status: " .. currentStatus)
                 ImGui.Separator()
+                ImGui.Text("Running: " .. tostring(running))
+                ImGui.Text("Action: " .. currentAction)
                 ImGui.EndTabItem()
             end
             if ImGui.BeginTabItem("Credits") then
@@ -113,3 +219,5 @@ AddHook("OnDraw", "PutBreakGUI", function(dt)
         ImGui.End()
     end
 end)
+
+LogToConsole("PUT/BREAK PLAT loaded. Use GUI to start.")
