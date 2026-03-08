@@ -284,9 +284,6 @@ local function LoadSettings()
                 if key == "DropX" then Settings.DropPos[1] = tonumber(value)
                 elseif key == "DropY" then Settings.DropPos[2] = tonumber(value)
                 elseif key == "MoveDelay" then Settings.MoveDelay = tonumber(value)
-                elseif key == "PlaceDelay" then Settings.PlaceDelay = tonumber(value)
-                elseif key == "Place2Delay" then Settings.Place2Delay = tonumber(value)
-                elseif key == "OpenDelay" then Settings.OpenDelay = tonumber(value)
                 elseif key == "CheckInterval" then Settings.CheckInterval = tonumber(value)
                 end
             end
@@ -316,12 +313,6 @@ AddHook("OnDraw", "CookGUI", function(dt)
                 ImGui.Text("Delays (ms):")
                 local changedMove, newMove = ImGui.InputInt("Move Delay", Settings.MoveDelay, 1, 10)
                 if changedMove then Settings.MoveDelay = newMove end
-                local changedPlace, newPlace = ImGui.InputInt("Place Delay", Settings.PlaceDelay, 10, 100)
-                if changedPlace then Settings.PlaceDelay = newPlace end
-                local changedPlace2, newPlace2 = ImGui.InputInt("Place2 Delay", Settings.Place2Delay, 10, 100)
-                if changedPlace2 then Settings.Place2Delay = newPlace2 end
-                local changedOpen, newOpen = ImGui.InputInt("Open Delay", Settings.OpenDelay, 10, 100)
-                if changedOpen then Settings.OpenDelay = newOpen end
                 local changedCheck, newCheck = ImGui.InputInt("Check Interval", Settings.CheckInterval, 100, 1000)
                 if changedCheck then Settings.CheckInterval = newCheck end
 
@@ -350,11 +341,11 @@ AddHook("OnDraw", "CookGUI", function(dt)
                 ImGui.Text("Oven Ditemukan: " .. #(Oven or {}))
                 ImGui.Text("Arroz: " .. inv(4604))
                 ImGui.Text("Rice: " .. inv(3472))
-                ImGui.Text("Ingredient 4602: " .. inv(4602))
+                ImGui.Text("Onion: " .. inv(4602))
                 ImGui.Text("Ingredient 962: " .. inv(962))
-                ImGui.Text("Ingredient 4570: " .. inv(4570))
-                ImGui.Text("Ingredient 4568: " .. inv(4568))
-                ImGui.Text("Ingredient 4588: " .. inv(4588))
+                ImGui.Text("Pepper: " .. inv(4570))
+                ImGui.Text("Salt: " .. inv(4568))
+                ImGui.Text("Chicken: " .. inv(4588))
                 ImGui.EndTabItem()
             end
 
