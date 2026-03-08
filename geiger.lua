@@ -538,11 +538,6 @@ AddHook("OnDraw", "GeigerGUI", function(dt)
                 ImGui.Text("Geiger Alive: " .. geigerVars.aliveGeiger)
                 ImGui.EndTabItem()
             end
-            if ImGui.BeginTabItem("Credits") then
-                ImGui.Text("Geiger Script by Swipez")
-                ImGui.Text("Modified by Ertoxz")
-                ImGui.EndTabItem()
-            end
             ImGui.EndTabBar()
         end
         ImGui.End()
