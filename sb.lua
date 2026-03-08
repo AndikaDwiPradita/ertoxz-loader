@@ -288,13 +288,6 @@ AddHook("OnDraw", "SBGUI", function()
                 ImGui.EndTabItem()
             end
 
-            if ImGui.BeginTabItem("Credits") then
-                ImGui.Text("Script made by Lantas & Intevoir")
-                ImGui.Text("Modified by Ertoxz")
-                ImGui.Text("GUI by Ertoxz")
-                ImGui.EndTabItem()
-            end
-
             ImGui.EndTabBar()
         end
         ImGui.End()
