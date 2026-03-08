@@ -233,11 +233,6 @@ AddHook("OnDraw", "GrinderGUI", function(dt)
                 ImGui.Text("Mode: " .. (grinderVars.grindMode and "Grind" or "Ambil"))
                 ImGui.EndTabItem()
             end
-            if ImGui.BeginTabItem("Credits") then
-                ImGui.Text("Grinder Script by Lantas")
-                ImGui.Text("Modified by Ertoxz")
-                ImGui.EndTabItem()
-            end
             ImGui.EndTabBar()
         end
         ImGui.End()
