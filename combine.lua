@@ -314,13 +314,6 @@ AddHook("OnDraw", "CombineGUI", function(dt)
                 ImGui.EndTabItem()
             end
 
-            -- CREDITS TAB
-            if ImGui.BeginTabItem("Credits") then
-                ImGui.Text("Combine Script by Lantas")
-                ImGui.Text("Modified by Ertoxz")
-                ImGui.EndTabItem()
-            end
-
             ImGui.EndTabBar()
         end
         ImGui.End()
