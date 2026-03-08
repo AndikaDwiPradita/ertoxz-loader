@@ -210,10 +210,6 @@ AddHook("OnDraw", "PutBreakGUI", function(dt)
                 ImGui.Text("Action: " .. currentAction)
                 ImGui.EndTabItem()
             end
-            if ImGui.BeginTabItem("Credits") then
-                ImGui.Text("Script by Ertoxz")
-                ImGui.EndTabItem()
-            end
             ImGui.EndTabBar()
         end
         ImGui.End()
