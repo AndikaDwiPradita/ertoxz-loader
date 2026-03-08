@@ -15,7 +15,7 @@ AddHook("OnDraw", "ErtoxzGUI", function()
             run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/putbreak.lua")
         end
         if ImGui.Button("AUTO PTHT", 200, 40) then
-            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/ptht1.lua")
+            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/ptht.lua")
         end
         if ImGui.Button("AUTO GEIGER", 200, 40) then
             run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/geiger.lua")
