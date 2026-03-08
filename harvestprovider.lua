@@ -188,13 +188,6 @@ AddHook("OnDraw", "ProviderGUI", function(dt)
                 ImGui.EndTabItem()
             end
             
-            -- CREDITS TAB
-            if ImGui.BeginTabItem("Credits") then
-                ImGui.Text("Provider Harvester Script")
-                ImGui.Text("Modified by Ertoxz")
-                ImGui.Text("GUI by Ertoxz")
-                ImGui.EndTabItem()
-            end
             
             ImGui.EndTabBar()
         end
