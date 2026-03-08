@@ -582,4 +582,61 @@ AddHook("OnDraw", "PNBGUI", function(dt)
                 ImGui.Separator()
                 ImGui.Text("World: " .. (GetWorld() and GetWorld().name or "None"))
                 ImGui.Text("Position: " .. posx .. ", " .. posy)
-      
+                ImGui.Text("Magplants: " .. #Mag)
+                ImGui.Text("Current Remote: " .. Now)
+                ImGui.Text("DL: " .. inv(1796))
+                ImGui.Text("BGL: " .. inv(7188))
+                ImGui.Text("Arroz: " .. inv(4604))
+                ImGui.Text("Clover: " .. inv(528))
+                ImGui.Text("Songpyeon: " .. inv(1056))
+                ImGui.Text("Gems: " .. (GetPlayerItems() and GetPlayerItems().gems or 0))
+                ImGui.Text("Limit: " .. Limit)
+                ImGui.EndTabItem()
+            end
+
+            ImGui.EndTabBar()
+        end
+        ImGui.End()
+    end
+end)
+
+-- Hook untuk command chat (opsional)
+AddHook("onsendpacket", "packet", function(type, pkt)
+    if pkt:find("/takegems") then
+        Settings.TakeGems = not Settings.TakeGems
+        if running then
+            SendPacket(2, "action|dialog_return\ndialog_name|cheats\ncheck_autofarm|1\ncheck_bfg|1\ncheck_lonely|".. (Settings.AntiLag and 1 or 1) .."\ncheck_gems|".. (Settings.TakeGems and 1 or 0))
+        end
+        overlay("`9Auto Collect Gems ".. (Settings.TakeGems and "Enabled" or "Disabled"))
+        return true
+    end
+    if pkt:find("/buydl") then
+        Settings.AutoBuyDL = not Settings.AutoBuyDL
+        overlay("`1Auto Buy Diamond Lock ".. (Settings.AutoBuyDL and "Enabled" or "Disabled"))
+        return true
+    end
+    if pkt:find("/buybgl") then
+        Settings.AutoBuyBGL = not Settings.AutoBuyBGL
+        overlay("`cAuto Buy Blue Gem Lock ".. (Settings.AutoBuyBGL and "Enabled" or "Disabled"))
+        return true
+    end
+    if pkt:find("/autosuck") then
+        Settings.AutoSuck = not Settings.AutoSuck
+        overlay("`2Auto Suck `bBlack Gems `2".. (Settings.AutoSuck and "Enabled" or "Disabled"))
+        return true
+    end
+    if pkt:find("/autodeposit") then
+        Settings.AutoDeposit = not Settings.AutoDeposit
+        overlay("`7Auto Deposit BGLs To Bank "..(Settings.AutoDeposit and "Enabled" or "Disabled"))
+        return true
+    end
+    return false
+end)
+
+-- Cek API
+if not os or not MakeRequest then
+    LogToConsole("Turn on os and MakeRequest in API List")
+end
+
+LoadSettings()
+LogToConsole("PNB Bot 3.0 Loader ready. Use GUI to start.")
