@@ -1,44 +1,27 @@
--- ==================== SCRIPT ASLI RECIPE PROCESSOR ====================
+-- ==================== AUTO COMBINE (RECIPE PROCESSOR) ====================
+
 Recipes = {1828, 1096, 1098}
 Item = 1056
 DropPos = {27, 24}
 Delay = 500
 
-function Punch()
-    ch()
-    h = {}
-    h.type = 3
-    h.px = GetLocal().pos.x // 32 + ((Direction == "Right") and 1 or -1)
-    h.py = GetLocal().pos.y // 32
-    h.value = 18
-    h.x = GetLocal().pos.x
-    h.y = GetLocal().pos.y
-    SendPacketRaw(false, h)
-    ch()
+-- Variabel kontrol
+local running = false
+local stopRequested = false
+local currentStatus = "Idle"
+local World = ""
+local dropx, dropy = DropPos[1], DropPos[2]
+local Direction = "Right"
+local Player = {0, 0}
+local Combiner = {0, 0}
+
+-- Fungsi pendukung
+function Log(x)
+    LogToConsole("`0[`9Combine`0] " .. x)
 end
 
-function Raw(t, s, v, x, y)
-  pkt = {
-    type = t,
-    state = s,
-    value = v,
-    px = x, 
-    py = y,
-    x = x * 32,
-    y = y * 32
-  }
-  SendPacketRaw(false, pkt)
-end
-
-function Reconnect()
-    LogToConsole("Disconnected or moved... reconnecting!")
-    SendPacket(3, "action|join_request\nname|" .. World)
-    Sleep(3000)
-    while GetWorld() == nil or GetWorld().name:lower() ~= World:lower() do
-        Sleep(1000)
-        SendPacket(3, "action|join_request\nname|" .. World)
-    end
-    LogToConsole("Reconnected to " .. World)
+function Join(w)
+    SendPacket(3, "action|join_request\nname|" .. w .. "|\ninvitedWorld|0")
 end
 
 function GetItemCount(id)
@@ -59,8 +42,68 @@ function GetDroppedCount(x, y)
     return 0
 end
 
+function Raw(t, s, v, x, y)
+    SendPacketRaw(false, {
+        type = t,
+        state = s,
+        value = v,
+        px = x,
+        py = y,
+        x = x * 32,
+        y = y * 32
+    })
+end
+
+function ch()
+    if GetWorld() == nil or GetWorld().name:lower() ~= World:lower() then
+        Reconnect()
+    end
+end
+
+function Reconnect()
+    LogToConsole("Disconnected or moved... reconnecting!")
+    SendPacket(3, "action|join_request\nname|" .. World)
+    Sleep(3000)
+    while GetWorld() == nil or GetWorld().name:lower() ~= World:lower() do
+        Sleep(1000)
+        SendPacket(3, "action|join_request\nname|" .. World)
+    end
+    LogToConsole("Reconnected to " .. World)
+end
+
+function move(tx, ty)
+    local function dir(a, b) return (b - a) / math.max(1, math.abs(b - a)) end
+    local function ease(t) return t * t * (3 - 2 * t) end  
+
+    while not stopRequested do
+        ch()
+        local p = GetLocal().pos
+        local x, y = p.x // 32, p.y // 32
+        if x == tx and y == ty then break end
+
+        local nx, ny = x + dir(x, tx), y + dir(y, ty)
+        FindPath(nx, ny)
+        Sleep(30 + ease(math.abs(nx - tx + ny - ty)) * 20)
+    end
+end
+
+function Punch()
+    if stopRequested then return end
+    ch()
+    local pkt = {}
+    pkt.type = 3
+    pkt.px = GetLocal().pos.x // 32 + ((Direction == "Right") and 1 or -1)
+    pkt.py = GetLocal().pos.y // 32
+    pkt.value = 18
+    pkt.x = GetLocal().pos.x
+    pkt.y = GetLocal().pos.y
+    SendPacketRaw(false, pkt)
+    ch()
+end
+
 function Dropp()
     for i = 1, 12 do
+        if stopRequested then return end
         ch()
         if GetItemCount(Item) >= 250 then
             SendPacket(2, "action|dialog_return\ndialog_name|drop\nitem_drop|"..Item.."|\nitem_count|" .. GetItemCount(Item))
@@ -77,27 +120,13 @@ function Dropp()
     end
 end
 
-function move(tx, ty)
-  local function dir(a, b) return (b - a) / math.max(1, math.abs(b - a)) end
-  local function ease(t) return t * t * (3 - 2 * t) end  
-
-  while true do
-    ch()
-    local p = GetLocal().pos
-    local x, y = p.x // 32, p.y // 32
-    if x == tx and y == ty then break end
-
-    local nx, ny = x + dir(x, tx), y + dir(y, ty)
-    FindPath(nx, ny)
-    Sleep(30 + ease(math.abs(nx - tx + ny - ty)) * 20)
-  end
-end
-
 function GetDropped()
     for _, id in pairs(Recipes) do
+        if stopRequested then return end
         ch()
         if GetItemCount(id) < 100 then
             for _, obj in pairs(GetObjectList()) do
+                if stopRequested then return end
                 ch()
                 if obj.id == id then
                     ch()
@@ -111,28 +140,18 @@ function GetDropped()
 end
 
 function DropRecipes()
-  for _, id in pairs(Recipes) do
-    local count = GetItemCount(id)
-    if count > 100 then
-      SendPacket(2, "action|dialog_return\ndialog_name|drop\nitem_drop|" .. id .. "|\nitem_count|" .. count)
-      Sleep(Delay)
-    end
-  end
-end
-
-function ch()
-    if GetWorld() == nil or GetWorld().name:lower() ~= World:lower() then
-        Reconnect()
+    for _, id in pairs(Recipes) do
+        if stopRequested then return end
+        local count = GetItemCount(id)
+        if count > 100 then
+            SendPacket(2, "action|dialog_return\ndialog_name|drop\nitem_drop|" .. id .. "|\nitem_count|" .. count)
+            Sleep(Delay)
+        end
     end
 end
-
-World = GetWorld().name
-dropx, dropy = DropPos[1], DropPos[2]
-Direction = (GetLocal().isleft and "Left" or "Right")
-Player = {GetLocal().pos.x // 32, GetLocal().pos.y // 32}
-Combiner = {GetLocal().pos.x // 32 + (Direction == "Right" and 1 or -1), GetLocal().pos.y // 32}
 
 function Main()
+    if stopRequested then return end
     ch()
     move(Player[1], Player[2])
     Sleep(Delay)
@@ -142,135 +161,171 @@ function Main()
     Sleep(500)
     Punch()
     Sleep(500)
-    FindPath(Combiner[1], Combiner[2])
-    Sleep(1000)
-    move(dropx, dropy)
-    Sleep(500)
-    Dropp()
+    if not stopRequested then
+        FindPath(Combiner[1], Combiner[2])
+        Sleep(1000)
+        move(dropx, dropy)
+        Sleep(500)
+        Dropp()
+    end
 end
 
--- ==================== GUI & KONTROL ====================
-local running = false
-local stopRequested = false
-local currentStatus = "Idle"
+-- Fungsi utama yang dijalankan di thread
+local function runCombine()
+    -- Inisialisasi variabel
+    World = GetWorld().name
+    dropx, dropy = DropPos[1], DropPos[2]
+    Direction = (GetLocal().isleft and "Left" or "Right")
+    Player = {GetLocal().pos.x // 32, GetLocal().pos.y // 32}
+    Combiner = {GetLocal().pos.x // 32 + (Direction == "Right" and 1 or -1), GetLocal().pos.y // 32}
 
-local function startProcess()
+    Log("Combine started at " .. World)
+
+    while running and not stopRequested do
+        ch()
+        GetDropped()
+        Sleep(700)
+        if running and not stopRequested then
+            Main()
+        end
+    end
+
+    running = false
+    currentStatus = "Stopped"
+    Log("Combine stopped")
+end
+
+local function startCombine()
     if running then return end
     running = true
     stopRequested = false
     currentStatus = "Running"
-    RunThread(function()
-        while running and not stopRequested do
-            ch()
-            GetDropped()
-            Sleep(700)
-            if running and not stopRequested then
-                Main()
-            end
-        end
-        running = false
-        currentStatus = "Stopped"
-    end)
+    RunThread(runCombine)
 end
 
-local function stopProcess()
+local function stopCombine()
     if running then
         stopRequested = true
         currentStatus = "Stopping..."
     end
 end
 
-AddHook("OnDraw", "RecipeGUI", function(dt)
-    if ImGui.Begin("Recipe Processor - Ertoxz", nil, ImGuiWindowFlags_NoCollapse) then
-        if ImGui.BeginTabBar("RecipeTabs") then
-            
+-- Fungsi Save/Load
+local function SaveSettings()
+    local file = io.open("storage/emulated/0/android/media/com.rtsoft.growtopia/scripts/COMBINE_SETTINGS.txt", "w")
+    if file then
+        file:write("Recipes=" .. table.concat(Recipes, ",") .. "\n")
+        file:write("Item=" .. Item .. "\n")
+        file:write("DropX=" .. DropPos[1] .. "\n")
+        file:write("DropY=" .. DropPos[2] .. "\n")
+        file:write("Delay=" .. Delay .. "\n")
+        file:close()
+        Log("`2Settings saved.")
+    else
+        Log("`4Failed to save settings.")
+    end
+end
+
+local function LoadSettings()
+    local file = io.open("storage/emulated/0/android/media/com.rtsoft.growtopia/scripts/COMBINE_SETTINGS.txt", "r")
+    if file then
+        for line in file:lines() do
+            local key, value = line:match("([^=]+)=(.+)")
+            if key and value then
+                if key == "Recipes" then
+                    local ids = {}
+                    for id in string.gmatch(value, "%d+") do
+                        table.insert(ids, tonumber(id))
+                    end
+                    if #ids > 0 then Recipes = ids end
+                elseif key == "Item" then Item = tonumber(value)
+                elseif key == "DropX" then DropPos[1] = tonumber(value)
+                elseif key == "DropY" then DropPos[2] = tonumber(value)
+                elseif key == "Delay" then Delay = tonumber(value)
+                end
+            end
+        end
+        file:close()
+        Log("`2Settings loaded.")
+    else
+        Log("`3No settings file found.")
+    end
+end
+
+-- ==================== GUI ====================
+AddHook("OnDraw", "CombineGUI", function(dt)
+    if ImGui.Begin("Auto Combine - Ertoxz", nil, ImGuiWindowFlags_NoCollapse) then
+        if ImGui.BeginTabBar("CombineTabs") then
             -- MAIN TAB
             if ImGui.BeginTabItem("Main") then
                 ImGui.Text("Settings")
                 ImGui.Separator()
-                
-                ImGui.Text("Recipes IDs:")
-                for i, id in ipairs(Recipes) do
-                    local changed, newID = ImGui.InputInt("Recipe " .. i, id, 1, 100)
-                    if changed then Recipes[i] = newID end
+
+                ImGui.Text("Recipe IDs (pisah koma):")
+                local recipeStr = table.concat(Recipes, ",")
+                local changedRecipe, newRecipe = ImGui.InputText("##Recipes", recipeStr, 100)
+                if changedRecipe then
+                    local ids = {}
+                    for id in string.gmatch(newRecipe, "%d+") do
+                        table.insert(ids, tonumber(id))
+                    end
+                    if #ids > 0 then Recipes = ids end
                 end
-                
+
                 local changedItem, newItem = ImGui.InputInt("Item ID", Item, 1, 100)
                 if changedItem then Item = newItem end
-                
+
                 ImGui.Text("Drop Position:")
                 local changedDropX, newDropX = ImGui.InputInt("Drop X", DropPos[1], 1, 10)
                 if changedDropX then DropPos[1] = newDropX end
                 local changedDropY, newDropY = ImGui.InputInt("Drop Y", DropPos[2], 1, 10)
                 if changedDropY then DropPos[2] = newDropY end
-                
+
                 local changedDelay, newDelay = ImGui.InputInt("Delay (ms)", Delay, 10, 100)
                 if changedDelay then Delay = newDelay end
-                
-                ImGui.Text("Direction: " .. Direction)
-                
+
                 ImGui.Separator()
                 if not running then
-                    if ImGui.Button("Start Process", 150, 30) then
-                        startProcess()
+                    if ImGui.Button("Start Combine", 150, 30) then
+                        startCombine()
                     end
                 else
-                    if ImGui.Button("Stop Process", 150, 30) then
-                        stopProcess()
+                    if ImGui.Button("Stop Combine", 150, 30) then
+                        stopCombine()
                     end
                 end
-                
+                ImGui.SameLine()
+                if ImGui.Button("Save", 80, 30) then SaveSettings() end
+                ImGui.SameLine()
+                if ImGui.Button("Load", 80, 30) then LoadSettings() end
+
                 ImGui.EndTabItem()
             end
-            
+
             -- STATUS TAB
             if ImGui.BeginTabItem("Status") then
                 ImGui.Text("Current Status: " .. currentStatus)
                 ImGui.Separator()
-                
-                ImGui.Text("Inventory:")
-                ImGui.Columns(3, "invCols")
-                ImGui.Text("Item ID"); ImGui.NextColumn()
-                ImGui.Text("Name"); ImGui.NextColumn()
-                ImGui.Text("Jumlah"); ImGui.NextColumn()
-                ImGui.Separator()
-                
-                for _, id in ipairs(Recipes) do
-                    local info = GetItemByIDSafe(id)
-                    local name = info and info.name or "Unknown"
-                    ImGui.Text(tostring(id)); ImGui.NextColumn()
-                    ImGui.Text(name); ImGui.NextColumn()
-                    ImGui.Text(tostring(GetItemCount(id))); ImGui.NextColumn()
-                end
-                
-                local info = GetItemByIDSafe(Item)
-                local name = info and info.name or "Unknown"
-                ImGui.Text(tostring(Item)); ImGui.NextColumn()
-                ImGui.Text(name); ImGui.NextColumn()
-                ImGui.Text(tostring(GetItemCount(Item))); ImGui.NextColumn()
-                
-                ImGui.Columns(1)
-                
-                ImGui.Separator()
-                ImGui.Text("Position: " .. GetLocal().pos.x // 32 .. ", " .. GetLocal().pos.y // 32)
-                
+                ImGui.Text("World: " .. (GetWorld() and GetWorld().name or "None"))
+                ImGui.Text("Direction: " .. Direction)
+                ImGui.Text("Player Pos: " .. Player[1] .. ", " .. Player[2])
+                ImGui.Text("Combiner Pos: " .. Combiner[1] .. ", " .. Combiner[2])
+                ImGui.Text("Item Count: " .. GetItemCount(Item))
                 ImGui.EndTabItem()
             end
-            
+
             -- CREDITS TAB
             if ImGui.BeginTabItem("Credits") then
-                ImGui.Text("Recipe Processor Script")
-                ImGui.Text("Original by Unknown")
+                ImGui.Text("Combine Script by Lantas")
                 ImGui.Text("Modified by Ertoxz")
-                ImGui.Text("GUI by Ertoxz")
                 ImGui.EndTabItem()
             end
-            
+
             ImGui.EndTabBar()
         end
         ImGui.End()
     end
 end)
 
--- Hapus loop while true do yang asli, karena sudah diganti dengan kontrol GUI
-LogToConsole("Recipe Processor GUI loaded. Use GUI to start/stop.")
+Log("Combine script loaded. Use GUI to start.")
+LoadSettings()
