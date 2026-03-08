@@ -1,4 +1,4 @@
--- ==================== AUTO PTHT (DENGAN KONTROL START/STOP) ====================
+-- ==================== AUTO PTHT (DENGAN PILIHAN WORLD TYPE) ====================
 local pthtConfig = {
     treeID = 15159,
     startMode = "PT",
@@ -12,9 +12,9 @@ local pthtConfig = {
     magplantLimit = 200,
     magplantBcg = 12840,
     pathfinderDelay = 520,
-    PosX = 0,
-    PosY = 0,
+    worldType = "island", -- "normal", "island", "nether"
 }
+
 local pthtRunning = false
 local pthtStop = false
 local pthtVars = {
@@ -29,7 +29,17 @@ local pthtVars = {
 }
 local currentStatus = "Idle"
 
--- Fungsi asli (harus didefinisikan di sini, dari script sebelumnya)
+-- Fungsi untuk mendapatkan ukuran world
+local function getWorldSize()
+    if pthtConfig.worldType == "normal" then
+        return 100, 60
+    elseif pthtConfig.worldType == "nether" then
+        return 150, 150
+    else -- island
+        return 200, 200
+    end
+end
+
 function pthtSendPacketRaw(H, I, J, K, L)
     SendPacketRaw(false, {type = H, state = I, value = J, px = K, py = L, x = K * 32, y = L * 32})
 end
@@ -45,7 +55,7 @@ end
 
 function pthtGetMagplant()
     local Found = {}
-    local sizeX, sizeY = 200, 200
+    local sizeX, sizeY = getWorldSize()
     for x = 0, sizeX - 1 do
         for y = 0, sizeY - 1 do
             local tile = GetTile(x, y)
@@ -99,8 +109,9 @@ function pthtChangeMode()
 end
 
 function pthtRotation()
-    local sizeX, sizeY = 200, 200
+    local sizeX, sizeY = getWorldSize()
     local put = pthtConfig.mray and 10 or 1
+
     for y = sizeY - 2, 0, -1 do
         if pthtStop then break end
         for x1 = 0, put - 1 do
@@ -109,6 +120,7 @@ function pthtRotation()
                 if pthtStop then break end
                 local x = x2 * put + x1
                 local tile = GetTile(x, y)
+
                 if pthtVars.plant then
                     if tile and tile.fg == 0 then
                         FindPath(x, y - 1, pthtConfig.pathfinderDelay)
@@ -131,6 +143,7 @@ function pthtRotation()
             end
         end
     end
+
     pthtVars.counter = pthtVars.counter + 1
     pthtChangeMode()
 end
@@ -162,6 +175,7 @@ local function runPTHT()
         uwsUsed = 0,
         iM = 0,
     }
+
     ChangeValue("[C] Modfly", true)
 
     while pthtRunning and not pthtStop do
@@ -183,6 +197,7 @@ local function runPTHT()
             until pthtStop
         end
     end
+
     pthtRunning = false
     currentStatus = "Stopped"
     pthtTextO("PTHT stopped")
@@ -220,8 +235,7 @@ local function SaveSettings()
         file:write("magplantLimit=" .. pthtConfig.magplantLimit .. "\n")
         file:write("magplantBcg=" .. pthtConfig.magplantBcg .. "\n")
         file:write("pathfinderDelay=" .. pthtConfig.pathfinderDelay .. "\n")
-        file:write("PosX=" .. pthtConfig.PosX .. "\n")
-        file:write("PosY=" .. pthtConfig.PosY .. "\n")
+        file:write("worldType=" .. pthtConfig.worldType .. "\n")
         file:close()
         LogToConsole("`2PTHT settings saved.")
     else
@@ -249,8 +263,7 @@ local function LoadSettings()
                 elseif key == "magplantLimit" then pthtConfig.magplantLimit = tonumber(value)
                 elseif key == "magplantBcg" then pthtConfig.magplantBcg = tonumber(value)
                 elseif key == "pathfinderDelay" then pthtConfig.pathfinderDelay = tonumber(value)
-                elseif key == "PosX" then pthtConfig.PosX = tonumber(value)
-                elseif key == "PosY" then pthtConfig.PosY = tonumber(value)
+                elseif key == "worldType" then pthtConfig.worldType = value
                 end
             end
         end
@@ -272,19 +285,33 @@ end
 AddHook("OnDraw", "PTHTGUI", function(dt)
     if ImGui.Begin("Auto PTHT - Ertoxz", nil, ImGuiWindowFlags_NoCollapse) then
         if ImGui.BeginTabBar("PTHTTabs") then
+            -- MAIN TAB
             if ImGui.BeginTabItem("Main") then
                 ImGui.Text("Settings")
                 ImGui.Separator()
+
                 local changedTree, newTree = ImGui.InputInt("ID Tree", pthtConfig.treeID, 1, 100)
                 if changedTree then pthtConfig.treeID = newTree end
+
                 local changedMode, newMode = ImGui.InputText("Mode (PT/PTHT/HT)", pthtConfig.startMode, 10)
                 if changedMode then pthtConfig.startMode = newMode end
+
                 local loopStr = tostring(pthtConfig.loop)
                 local changedLoop, newLoop = ImGui.InputText("Loop (angka/'unli')", loopStr, 10)
                 if changedLoop then
                     if newLoop:lower() == "unli" then pthtConfig.loop = "unli"
                     else pthtConfig.loop = tonumber(newLoop) end
                 end
+
+                ImGui.Text("World Type:")
+                if ImGui.RadioButton("Normal", pthtConfig.worldType == "normal") then pthtConfig.worldType = "normal" end
+                ImGui.SameLine()
+                if ImGui.RadioButton("Island", pthtConfig.worldType == "island") then pthtConfig.worldType = "island" end
+                ImGui.SameLine()
+                if ImGui.RadioButton("Nether", pthtConfig.worldType == "nether") then pthtConfig.worldType = "nether" end
+
+                ImGui.Separator()
+                ImGui.Text("Delays (ms):")
                 local changedDH, newDH = ImGui.InputInt("Harvest Delay", pthtConfig.delayHarvest, 1, 10)
                 if changedDH then pthtConfig.delayHarvest = newDH end
                 local changedDE, newDE = ImGui.InputInt("Entering Delay", pthtConfig.delayEntering, 1, 10)
@@ -293,16 +320,23 @@ AddHook("OnDraw", "PTHTGUI", function(dt)
                 if changedDP then pthtConfig.delayPlant = newDP end
                 local changedPD, newPD = ImGui.InputInt("Pathfinder Delay", pthtConfig.pathfinderDelay, 10, 100)
                 if changedPD then pthtConfig.pathfinderDelay = newPD end
+
                 local changedMray, newMray = ImGui.Checkbox("Mray", pthtConfig.mray)
                 if changedMray then pthtConfig.mray = newMray end
-                local changedWeb, newWeb = ImGui.InputText("Webhook URL", pthtConfig.webhook, 100)
+
+                ImGui.Separator()
+                ImGui.Text("Magplant:")
+                local changedLimit, newLimit = ImGui.InputInt("Limit", pthtConfig.magplantLimit, 1, 10)
+                if changedLimit then pthtConfig.magplantLimit = newLimit end
+                local changedBcg, newBcg = ImGui.InputInt("Background ID", pthtConfig.magplantBcg, 1, 100)
+                if changedBcg then pthtConfig.magplantBcg = newBcg end
+
+                ImGui.Text("Webhook:")
+                local changedWeb, newWeb = ImGui.InputText("URL", pthtConfig.webhook, 100)
                 if changedWeb then pthtConfig.webhook = newWeb end
                 local changedDisc, newDisc = ImGui.InputText("Discord ID", pthtConfig.discordID, 30)
                 if changedDisc then pthtConfig.discordID = newDisc end
-                local changedLimit, newLimit = ImGui.InputInt("Magplant Limit", pthtConfig.magplantLimit, 1, 10)
-                if changedLimit then pthtConfig.magplantLimit = newLimit end
-                local changedBcg, newBcg = ImGui.InputInt("Magplant BG", pthtConfig.magplantBcg, 1, 100)
-                if changedBcg then pthtConfig.magplantBcg = newBcg end
+
                 ImGui.Separator()
                 if not pthtRunning then
                     if ImGui.Button("Start PTHT", 120, 30) then startPTHT() end
@@ -313,32 +347,30 @@ AddHook("OnDraw", "PTHTGUI", function(dt)
                 if ImGui.Button("Save", 80, 30) then SaveSettings() end
                 ImGui.SameLine()
                 if ImGui.Button("Load", 80, 30) then LoadSettings() end
+
                 ImGui.EndTabItem()
             end
-            if ImGui.BeginTabItem("Settings") then
-                ImGui.Text("Position Settings")
-                ImGui.Separator()
-                local changedPX, newPX = ImGui.InputInt("Pos X", pthtConfig.PosX, 1, 100)
-                if changedPX then pthtConfig.PosX = newPX end
-                local changedPY, newPY = ImGui.InputInt("Pos Y", pthtConfig.PosY, 1, 100)
-                if changedPY then pthtConfig.PosY = newPY end
-                ImGui.EndTabItem()
-            end
+
+            -- STATUS TAB
             if ImGui.BeginTabItem("Status") then
                 ImGui.Text("Current Status: " .. currentStatus)
                 ImGui.Separator()
                 ImGui.Text("Mode: " .. getModeName())
                 ImGui.Text("Counter: " .. (pthtVars.counter or 0) .. " / " .. tostring(pthtConfig.loop))
+                ImGui.Text("UWS: " .. inv(12600))
                 ImGui.Text("Limiter: " .. pthtVars.limiter)
                 ImGui.Text("Magplant Index: " .. pthtVars.current)
                 ImGui.Text("Remote Empty: " .. tostring(pthtVars.remoteEmpty))
                 ImGui.EndTabItem()
             end
+
+            -- CREDITS TAB
             if ImGui.BeginTabItem("Credits") then
                 ImGui.Text("PTHT Script by Lantas")
                 ImGui.Text("Modified by Ertoxz")
                 ImGui.EndTabItem()
             end
+
             ImGui.EndTabBar()
         end
         ImGui.End()
@@ -346,3 +378,4 @@ AddHook("OnDraw", "PTHTGUI", function(dt)
 end)
 
 LogToConsole("PTHT loaded. Use GUI to start.")
+LoadSettings()
