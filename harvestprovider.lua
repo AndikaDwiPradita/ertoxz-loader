@@ -179,7 +179,6 @@ AddHook("OnDraw", "ProviderGUI", function(dt)
             if ImGui.BeginTabItem("Status") then
                 ImGui.Text("Current Status: " .. currentStatus)
                 ImGui.Separator()
-                ImGui.Text("Harvest Count: " .. harvestCount)
                 if running then
                     ImGui.TextColored(0, 255, 0, 255, "● Running")
                 else
