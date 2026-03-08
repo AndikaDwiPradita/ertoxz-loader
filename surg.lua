@@ -274,14 +274,6 @@ AddHook("OnDraw", "SurgGUI", function(dt)
                 ImGui.Text("Inventory 1270: " .. inv(1270))
                 ImGui.EndTabItem()
             end
-
-            -- CREDITS TAB
-            if ImGui.BeginTabItem("Credits") then
-                ImGui.Text("Script by Lantas")
-                ImGui.Text("Modified by Ertoxz")
-                ImGui.EndTabItem()
-            end
-
             ImGui.EndTabBar()
         end
         ImGui.End()
