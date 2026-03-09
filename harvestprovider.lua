@@ -174,20 +174,6 @@ AddHook("OnDraw", "ProviderGUI", function(dt)
                 
                 ImGui.EndTabItem()
             end
-            
-            -- STATUS TAB
-            if ImGui.BeginTabItem("Status") then
-                ImGui.Text("Current Status: " .. currentStatus)
-                ImGui.Separator()
-                if running then
-                    ImGui.TextColored(0, 255, 0, 255, "● Running")
-                else
-                    ImGui.TextColored(255, 0, 0, 255, "● Stopped")
-                end
-                ImGui.EndTabItem()
-            end
-            
-            
             ImGui.EndTabBar()
         end
         ImGui.End()
