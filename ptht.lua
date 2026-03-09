@@ -274,13 +274,6 @@ local function LoadSettings()
     end
 end
 
--- Helper untuk status
-local function getModeName()
-    if pthtVars.plant then return "Planting"
-    elseif pthtVars.harvest then return "Harvesting"
-    else return "Idle" end
-end
-
 -- ==================== GUI ====================
 AddHook("OnDraw", "PTHTGUI", function(dt)
     if ImGui.Begin("Auto PTHT - Ertoxz", nil, ImGuiWindowFlags_NoCollapse) then
@@ -348,26 +341,6 @@ AddHook("OnDraw", "PTHTGUI", function(dt)
                 ImGui.SameLine()
                 if ImGui.Button("Load", 80, 30) then LoadSettings() end
 
-                ImGui.EndTabItem()
-            end
-
-            -- STATUS TAB
-            if ImGui.BeginTabItem("Status") then
-                ImGui.Text("Current Status: " .. currentStatus)
-                ImGui.Separator()
-                ImGui.Text("Mode: " .. getModeName())
-                ImGui.Text("Counter: " .. (pthtVars.counter or 0) .. " / " .. tostring(pthtConfig.loop))
-                ImGui.Text("UWS: " .. inv(12600))
-                ImGui.Text("Limiter: " .. pthtVars.limiter)
-                ImGui.Text("Magplant Index: " .. pthtVars.current)
-                ImGui.Text("Remote Empty: " .. tostring(pthtVars.remoteEmpty))
-                ImGui.EndTabItem()
-            end
-
-            -- CREDITS TAB
-            if ImGui.BeginTabItem("Credits") then
-                ImGui.Text("PTHT Script by Lantas")
-                ImGui.Text("Modified by Ertoxz")
                 ImGui.EndTabItem()
             end
 
