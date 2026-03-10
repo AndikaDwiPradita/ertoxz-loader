@@ -1,4 +1,4 @@
--- ==================== SPTHT LOADER (DENGAN MANAJEMEN MAGPLANT PINTAR) ====================
+-- ==================== SPTHT LOADER (FIXED POSISI) ====================
 
 -- === KONFIGURASI ===
 Settings = {
@@ -19,9 +19,9 @@ y2 = Settings.lineY
 Mag = {}                 -- Menyimpan semua magplant yang ditemukan
 currentMagIndex = 1      -- Index magplant yang sedang digunakan
 magLimits = {}           -- Menyimpan limit per magplant
-currentX = 0             -- Posisi X terakhir yang ditanami
-currentY = y2            -- Posisi Y terakhir yang ditanami
-currentDirection = 1     -- 1 = kiri ke kanan, -1 = kanan ke kiri
+targetX = 0              -- Tile target X berikutnya
+targetY = y2             -- Tile target Y berikutnya
+targetDirection = 1      -- 1 = kiri ke kanan, -1 = kanan ke kiri
 maxX = 199               -- Akan disesuaikan dengan world type
 World = ""
 
@@ -82,39 +82,39 @@ function TakeMagplant(index)
   return true
 end
 
--- Inisialisasi ulang posisi penanaman
-function resetPlantingPosition()
-  currentX = 0
-  currentY = y2
-  currentDirection = 1
+-- Inisialisasi ulang posisi target
+function resetTargetPosition()
+  targetX = 0
+  targetY = y2
+  targetDirection = 1
 end
 
--- Mendapatkan tile berikutnya berdasarkan posisi saat ini
-function getNextTile()
-  if currentY < y1 then
-    return nil -- Semua tile sudah diproses
-  end
-  
-  local nextX = currentX + currentDirection
-  local nextY = currentY
+-- Mendapatkan tile target saat ini (tanpa mengubah posisi)
+function getCurrentTarget()
+  return {x = targetX, y = targetY}
+end
+
+-- Maju ke tile berikutnya (untuk digunakan SETELAH menanam)
+function advanceToNextTile()
+  local nextX = targetX + targetDirection
+  local nextY = targetY
   
   -- Cek apakah perlu pindah baris
-  if (currentDirection == 1 and nextX > maxX) or (currentDirection == -1 and nextX < 0) then
-    nextY = currentY - 1
+  if (targetDirection == 1 and nextX > maxX) or (targetDirection == -1 and nextX < 0) then
+    nextY = targetY - 1
     if nextY < y1 then
-      return nil -- Habis
+      return false -- Habis
     end
-    currentDirection = currentDirection * -1
-    nextX = (currentDirection == 1 and 0 or maxX)
+    targetDirection = targetDirection * -1
+    nextX = (targetDirection == 1 and 0 or maxX)
   end
   
-  currentX = nextX
-  currentY = nextY
-  
-  return {x = currentX, y = currentY}
+  targetX = nextX
+  targetY = nextY
+  return true
 end
 
--- Menanam di satu tile
+-- Menanam di tile target
 function plantAt(x, y)
   if stopRequested then return false end
   local tile = GetTile(x, y)
@@ -137,29 +137,25 @@ end
 
 -- Fungsi utama penanaman dengan manajemen magplant
 function plantWithMagplantManagement()
-  -- Reset posisi jika memulai dari awal
-  if currentX == 0 and currentY == y2 and currentDirection == 1 then
-    -- Ini awal, tidak perlu reset
-  end
-  
-  local magplantChanged = false
   local tilesPlanted = 0
   
   while not stopRequested do
     -- Cek apakah masih ada tile yang perlu ditanami
-    local nextTile = getNextTile()
-    if nextTile == nil then
+    if targetY < y1 then
       LogToConsole("Semua tile telah ditanami")
       break
     end
+    
+    -- Dapatkan tile target saat ini
+    local currentTile = getCurrentTarget()
     
     -- Cek limit magplant saat ini
     if magLimits[currentMagIndex] == nil then
       magLimits[currentMagIndex] = 0
     end
     
+    -- Jika limit habis, ganti magplant TANPA memajukan tile
     if magLimits[currentMagIndex] >= Settings.plantLimit then
-      -- Ganti ke magplant berikutnya
       local oldIndex = currentMagIndex
       currentMagIndex = currentMagIndex + 1
       if currentMagIndex > #Mag then
@@ -176,19 +172,26 @@ function plantWithMagplantManagement()
       
       -- Reset limit untuk magplant baru
       magLimits[currentMagIndex] = 0
-      magplantChanged = true
       
-      -- Lanjutkan ke tile berikutnya (tidak reset posisi)
+      -- LANJUTKAN ke tile yang SAMA (tidak maju)
+      -- Karena kita tidak memanggil advanceToNextTile, tile yang sama akan ditanam lagi
     end
     
     -- Tanam di tile saat ini
-    local planted = plantAt(nextTile.x, nextTile.y)
+    local planted = plantAt(currentTile.x, currentTile.y)
     if planted then
       tilesPlanted = tilesPlanted + 1
       magLimits[currentMagIndex] = magLimits[currentMagIndex] + 1
+      -- Maju ke tile berikutnya HANYA jika berhasil menanam
+      if not advanceToNextTile() then
+        break -- Habis
+      end
+    else
+      -- Tile tidak bisa ditanam (mungkin sudah ada seed), tetap maju
+      if not advanceToNextTile() then
+        break -- Habis
+      end
     end
-    
-    -- Jika magplant baru saja diganti, kita sudah lanjut, jadi tidak perlu reset
   end
   
   LogToConsole("Selesai menanam " .. tilesPlanted .. " tile")
@@ -263,8 +266,8 @@ local function runSPTHT()
         return
     end
     
-    -- Reset posisi penanaman
-    resetPlantingPosition()
+    -- Reset posisi target
+    resetTargetPosition()
     
     while running and not stopRequested do
         -- Panen jika perlu
@@ -281,7 +284,7 @@ local function runSPTHT()
         Sleep(5000)
         
         -- Reset posisi untuk siklus berikutnya
-        resetPlantingPosition()
+        resetTargetPosition()
     end
     
     running = false
@@ -430,7 +433,7 @@ AddHook("OnDraw", "SPTHTGUI", function(dt)
                 if magLimits[currentMagIndex] then
                     ImGui.Text("Current Limit: " .. magLimits[currentMagIndex] .. "/" .. Settings.plantLimit)
                 end
-                ImGui.Text("Current Position: (" .. currentX .. "," .. currentY .. ")")
+                ImGui.Text("Target Position: (" .. targetX .. "," .. targetY .. ")")
                 ImGui.EndTabItem()
             end
 
