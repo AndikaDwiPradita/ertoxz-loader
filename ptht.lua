@@ -177,7 +177,7 @@ function Ptht()
               if (plant and GetTile(x,y).fg == 0 and GetTile(x,y+1).fg ~= 0) or (harvest and GetTile(x,y).fg == Settings.SeedID and GetTile(x,y).extra and GetTile(x,y).extra.progress == 1) then
                 Raw(0, (Settings.SecondAcc and 48 or 32), 0, x, y)
                 Raw(0, (Settings.SecondAcc and 48 or 32), 0, x, y)
-                Sleep(50)
+                Sleep(600)
                 Raw(3, 0, (plant and 5640 or 18), x, y)
                 Sleep(plant and Settings.DelayPT or Settings.DelayHT)
                 px = x +1
