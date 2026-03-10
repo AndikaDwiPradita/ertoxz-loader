@@ -419,7 +419,7 @@ local function runPNB()
         end
 
         -- Jika limit tercapai, ganti remote
-        if Limit >= 50 then
+        if Limit >= 1000 then
             Now = Now >= #Mag and 1 or Now + 1
             Sleep(300)
             SendPacket(2, "action|dialog_return\ndialog_name|cheats\ncheck_autofarm|0\ncheck_bfg|0\ncheck_lonely|".. (Settings.AntiLag and 1 or 1) .."\ncheck_gems|".. (Settings.TakeGems and 1 or 0))
