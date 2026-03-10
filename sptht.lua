@@ -1,6 +1,6 @@
--- ==================== SPTHT LOADER (TANPA UBAH SCRIPT ASLI) ====================
+-- ==================== SPTHT LOADER (DENGAN DETEKSI MAGPLANT OTOMATIS) ====================
 
--- === KONFIGURASI (SAMA PERSIS DENGAN SCRIPT ASLI) ===
+-- === KONFIGURASI ===
 Settings = {
   lineY = 192,
   amtseed = 2000,
@@ -8,14 +8,18 @@ Settings = {
   delayPlant = 150,
   UseUws = false,
   delayHarvest = 250,
-  FirstMagplant = {3, 191},
-  TwoMagplant = {2, 191},
+  MagBG = 284,           -- Background ID magplant (sama seperti PTHT)
   World = "island"
 }
 
--- === VARIABEL GLOBAL YANG DIPERLUKAN SCRIPT ASLI ===
+-- === VARIABEL GLOBAL ===
 y1 = 0
 y2 = Settings.lineY
+Mag = {}                 -- Menyimpan semua magplant yang ditemukan
+C = 1                    -- Index magplant yang sedang digunakan
+limit = 0
+chgremote = false
+World = ""
 
 -- === VARIABEL KONTROL ===
 local running = false
@@ -23,7 +27,7 @@ local stopRequested = false
 local currentStatus = "Idle"
 local thread = nil
 
--- === FUNGSI ASLI (DISALIN PERSIS) ===
+-- === FUNGSI ASLI (DIMODIFIKASI) ===
 function IsReady(tile)
   return tile and tile.extra and tile.extra.progress == 1.0
 end
@@ -40,20 +44,38 @@ function Raw(t, s, v, x, y)
   })
 end
 
-function magplant(x, y, button)
-  Raw(0, 0, 0, x, y)
-  Sleep(300)
-  Raw(3, 0, 32, x, y + 1)
-  Sleep(300)
-  SendPacket(2, "action|dialog_return\ndialog_name|magplant_edit\nx|" .. x .. "|\ny|".. y + 1 .. "|\nbuttonClicked|getRemote")
-  Sleep(300)
+-- Fungsi untuk mendapatkan semua magplant dengan background tertentu
+function GetMagplant()
+  local Found = {}
+  for x = 0, 199 do
+    for y = 0, 199 do
+      local tile = GetTile(x, y)
+      if tile and tile.fg == 5638 and tile.bg == Settings.MagBG then
+        table.insert(Found, {x, y})
+      end
+    end
+  end
+  return Found
 end
 
-function TakeMagplant(pos, btn)
-  Raw(0, 0, 0, pos[1], pos[2])
-  Sleep(100)
-  magplant(pos[1], pos[2], btn)
-  Sleep(1000)
+-- Fungsi mengambil remote magplant (sama seperti PTHT)
+function TakeMagplant()
+  Mag = GetMagplant()
+  if #Mag == 0 then
+    LogToConsole("Tidak ada magplant ditemukan!")
+    return false
+  end
+  
+  if C > #Mag then C = 1 end
+  local m = Mag[C]
+  
+  Raw(0, 0, 0, m[1], m[2])
+  Sleep(300)
+  Raw(3, 0, 32, m[1], m[2])
+  Sleep(300)
+  SendPacket(2, "action|dialog_return\ndialog_name|magplant_edit\nx|" .. m[1] .. "|\ny|" .. m[2] .. "|\nbuttonClicked|getRemote")
+  Sleep(500)
+  return true
 end
 
 function checkseed()
@@ -69,34 +91,60 @@ function checkseed()
   return count
 end
 
+-- Fungsi menanam di satu tile (teleport dulu baru place seed)
+function plantAt(x, y, isSplice)
+  if stopRequested then return false end
+  local tile = GetTile(x, y)
+  if tile and (tile.fg == 0 or (isSplice and tile.fg == Settings.FirstSeed)) then
+    LogToConsole("Planting at ("..x..","..y..")")
+    FindPath(x, y, 520)  -- Teleport ke tile
+    Sleep(100)
+    Raw(0, 32, 0, x, y)
+    Raw(0, 32, 0, x, y)
+    Sleep(100)
+    Raw(3, 0, 5640, x, y)  -- Place seed
+    Sleep(Settings.delayPlant)
+    return true
+  end
+  return false
+end
+
+-- Fungsi menanam dalam satu baris X
 function plantLine(x, splice)
   for y = y2, y1, -1 do
-    local tile = GetTile(x, y)
-    if tile and (tile.fg == 0 or (splice and tile.fg == Settings.FirstSeed)) then
-      LogToConsole("Planting On X: "..x)
-      Raw(0, 32, 0, x, y)
-      Raw(0, 32, 0, x, y)
-      Sleep(750)
-      Raw(3, 0, 5640, x, y)
-      Sleep(Settings.delayPlant)
-    end
+    if stopRequested then return end
+    plantAt(x, y, splice)
   end
 end
 
+-- Fungsi utama penanaman
 function doPlanting(startX, endX)
   for x = startX, endX, 10 do
     if stopRequested then return end
-    TakeMagplant(Settings.FirstMagplant, "getRemote")
-    TakeMagplant(Settings.FirstMagplant, "getRemote")
+    
+    -- Cek apakah perlu ganti remote
+    if chgremote then
+      C = (C % #Mag) + 1
+      TakeMagplant()
+      chgremote = false
+      limit = 0
+    end
+    
+    -- Tanam dengan FirstMagplant (splice false)
     plantLine(x, false)
     plantLine(x, false)
-    Sleep(750)
-
-    TakeMagplant(Settings.TwoMagplant, "getRemote")
-    TakeMagplant(Settings.TwoMagplant, "getRemote")
+    Sleep(200)
+    
+    -- Tanam dengan splice (true)
     plantLine(x, true)
     plantLine(x, true)
-    Sleep(750)
+    Sleep(200)
+    
+    -- Update limit (simulasi pengecekan, bisa disesuaikan)
+    limit = limit + 1
+    if limit >= 30 then
+      chgremote = true
+    end
   end
 end
 
@@ -115,9 +163,11 @@ function harvest()
         if stopRequested then return end
         local tile = GetTile(x, y)
         if tile and IsReady(tile) then
+          FindPath(x, y, 520)  -- Teleport ke tile untuk harvest
+          Sleep(100)
           Raw(0, 32, 0, x, y)
           Sleep(Settings.delayHarvest)
-          Raw(3, 0, 18, x, y)
+          Raw(3, 0, 18, x, y)  -- Punch dengan fist
           Sleep(Settings.delayHarvest)
         end
       end
@@ -130,6 +180,17 @@ local function runSPTHT()
     -- Reset variabel
     y1 = 0
     y2 = Settings.lineY
+    World = GetWorld().name
+    C = 1
+    limit = 0
+    chgremote = false
+    
+    -- Ambil remote pertama
+    if not TakeMagplant() then
+        LogToConsole("Gagal mengambil remote, script dihentikan")
+        running = false
+        return
+    end
     
     while running and not stopRequested do
         harvest()
@@ -181,10 +242,7 @@ local function SaveSettings()
         file:write("delayPlant=" .. Settings.delayPlant .. "\n")
         file:write("UseUws=" .. tostring(Settings.UseUws) .. "\n")
         file:write("delayHarvest=" .. Settings.delayHarvest .. "\n")
-        file:write("FirstMagplantX=" .. Settings.FirstMagplant[1] .. "\n")
-        file:write("FirstMagplantY=" .. Settings.FirstMagplant[2] .. "\n")
-        file:write("TwoMagplantX=" .. Settings.TwoMagplant[1] .. "\n")
-        file:write("TwoMagplantY=" .. Settings.TwoMagplant[2] .. "\n")
+        file:write("MagBG=" .. Settings.MagBG .. "\n")
         file:write("World=" .. Settings.World .. "\n")
         file:close()
         LogToConsole("`2Settings saved.")
@@ -205,10 +263,7 @@ local function LoadSettings()
                 elseif key == "delayPlant" then Settings.delayPlant = tonumber(value)
                 elseif key == "UseUws" then Settings.UseUws = (value == "true")
                 elseif key == "delayHarvest" then Settings.delayHarvest = tonumber(value)
-                elseif key == "FirstMagplantX" then Settings.FirstMagplant[1] = tonumber(value)
-                elseif key == "FirstMagplantY" then Settings.FirstMagplant[2] = tonumber(value)
-                elseif key == "TwoMagplantX" then Settings.TwoMagplant[1] = tonumber(value)
-                elseif key == "TwoMagplantY" then Settings.TwoMagplant[2] = tonumber(value)
+                elseif key == "MagBG" then Settings.MagBG = tonumber(value)
                 elseif key == "World" then Settings.World = value
                 end
             end
@@ -261,20 +316,11 @@ AddHook("OnDraw", "SPTHTGUI", function(dt)
                 local changedUseUws, newUseUws = ImGui.Checkbox("Use UWS", Settings.UseUws)
                 if changedUseUws then Settings.UseUws = newUseUws end
 
+                local changedMagBG, newMagBG = ImGui.InputInt("Magplant Background", Settings.MagBG, 1, 100)
+                if changedMagBG then Settings.MagBG = newMagBG end
+
                 local changedWorld, newWorld = ImGui.InputText("World Type (normal/island)", Settings.World, 30)
                 if changedWorld then Settings.World = newWorld end
-
-                ImGui.Text("First Magplant Position:")
-                local changedFMX, newFMX = ImGui.InputInt("First Mag X", Settings.FirstMagplant[1], 1, 10)
-                if changedFMX then Settings.FirstMagplant[1] = newFMX end
-                local changedFMY, newFMY = ImGui.InputInt("First Mag Y", Settings.FirstMagplant[2], 1, 10)
-                if changedFMY then Settings.FirstMagplant[2] = newFMY end
-
-                ImGui.Text("Second Magplant Position:")
-                local changedTMX, newTMX = ImGui.InputInt("Second Mag X", Settings.TwoMagplant[1], 1, 10)
-                if changedTMX then Settings.TwoMagplant[1] = newTMX end
-                local changedTMY, newTMY = ImGui.InputInt("Second Mag Y", Settings.TwoMagplant[2], 1, 10)
-                if changedTMY then Settings.TwoMagplant[2] = newTMY end
 
                 ImGui.Separator()
                 if not running then
@@ -300,10 +346,19 @@ AddHook("OnDraw", "SPTHTGUI", function(dt)
                 ImGui.Separator()
                 ImGui.Text("World: " .. (GetWorld() and GetWorld().name or "None"))
                 ImGui.Text("Ready Seeds: " .. getReadyCount())
-                ImGui.Text("First Mag: (" .. Settings.FirstMagplant[1] .. ", " .. Settings.FirstMagplant[2] .. ")")
-                ImGui.Text("Second Mag: (" .. Settings.TwoMagplant[1] .. ", " .. Settings.TwoMagplant[2] .. ")")
+                ImGui.Text("Magplants Found: " .. #Mag)
+                ImGui.Text("Current Magplant: " .. C)
+                ImGui.Text("Limit: " .. limit)
                 ImGui.EndTabItem()
             end
+
+            -- CREDITS TAB
+            if ImGui.BeginTabItem("Credits") then
+                ImGui.Text("SPTHT Script by Lantas")
+                ImGui.Text("Modified by Ertoxz")
+                ImGui.EndTabItem()
+            end
+
             ImGui.EndTabBar()
         end
         ImGui.End()
