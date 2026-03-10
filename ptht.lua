@@ -1,4 +1,4 @@
--- ==================== AUTO PTHT (DENGAN PILIHAN WORLD TYPE) ====================
+-- ==================== AUTO PTHT (FIXED PLANT MODE) ====================
 local pthtConfig = {
     treeID = 15159,
     startMode = "PT",
@@ -92,19 +92,25 @@ function pthtChangeMode()
         pthtVars.plant = true
         pthtVars.harvest = false
         return
-    end
-    if pthtVars.plant then
+    elseif pthtConfig.startMode:upper() == "HT" then
+        pthtTextO("`4[PTHT] Mode: HARVEST ONLY")
         pthtVars.plant = false
-        pthtVars.uwsUsed = pthtVars.uwsUsed + 1
-        pthtTextO("`oUWS Used: " .. pthtVars.uwsUsed)
-        SendPacket(2, "action|dialog_return\ndialog_name|ultraworldspray")
-        Sleep(5600)
-        pthtTextO("`4[PTHT] Harvest Mode")
         pthtVars.harvest = true
-    else
-        pthtVars.harvest = false
-        pthtTextO("`4[PTHT] Plant Mode")
-        pthtVars.plant = true
+        return
+    else -- PTHT
+        if pthtVars.plant then
+            pthtVars.plant = false
+            pthtVars.uwsUsed = pthtVars.uwsUsed + 1
+            pthtTextO("`oUWS Used: " .. pthtVars.uwsUsed)
+            SendPacket(2, "action|dialog_return\ndialog_name|ultraworldspray")
+            Sleep(5600)
+            pthtTextO("`4[PTHT] Harvest Mode")
+            pthtVars.harvest = true
+        else
+            pthtVars.harvest = false
+            pthtTextO("`4[PTHT] Plant Mode")
+            pthtVars.plant = true
+        end
     end
 end
 
@@ -123,6 +129,7 @@ function pthtRotation()
 
                 if pthtVars.plant then
                     if tile and tile.fg == 0 then
+                        pthtTextO("`2Planting at ("..x..","..y..")")
                         FindPath(x, y - 1, pthtConfig.pathfinderDelay)
                         Sleep(1)
                         pthtSendPacketRaw(0, 32, 0, x, y)
@@ -132,6 +139,7 @@ function pthtRotation()
                     end
                 elseif pthtVars.harvest then
                     if tile and tile.fg == pthtConfig.treeID and pthtIsReady(tile) then
+                        pthtTextO("`4Harvesting at ("..x..","..y..")")
                         FindPath(x, y, pthtConfig.pathfinderDelay)
                         Sleep(1)
                         while not pthtStop and GetTile(x, y).fg == pthtConfig.treeID and pthtIsReady(GetTile(x, y)) do
@@ -150,52 +158,45 @@ end
 
 function pthtReconnect()
     if GetWorld() == nil then
-        SendPacket(3, "action|join_request\nname|" .. GetWorld().name .. "|\ninvitedWorld|0")
-        pthtTextO("Entering world...")
-        Sleep(pthtConfig.delayEntering * 100)
-        pthtVars.remoteEmpty = true
+        -- Jangan akses GetWorld().name jika nil
+        pthtTextO("Waiting for world...")
+        Sleep(1000)
+        return
+    end
+    if pthtVars.remoteEmpty then
+        pthtTextO("Taking remote...")
+        pthtGetRemote()
     else
-        if pthtVars.remoteEmpty then
-            pthtTextO("Taking remote...")
-            pthtGetRemote()
-        end
         pthtRotation()
     end
 end
 
--- Fungsi utama yang akan dijalankan di thread
+-- Fungsi utama yang dijalankan di thread
 local function runPTHT()
-    pthtVars = {
-        plant = pthtConfig.startMode:upper() == "PT" or pthtConfig.startMode:upper() == "PTHT",
-        harvest = pthtConfig.startMode:upper() == "HT",
-        limiter = 0,
-        current = 1,
-        remoteEmpty = true,
-        counter = 0,
-        uwsUsed = 0,
-        iM = 0,
-    }
+    -- Set mode awal berdasarkan startMode
+    if pthtConfig.startMode:upper() == "PT" then
+        pthtVars.plant = true
+        pthtVars.harvest = false
+    elseif pthtConfig.startMode:upper() == "HT" then
+        pthtVars.plant = false
+        pthtVars.harvest = true
+    else -- PTHT
+        pthtVars.plant = true
+        pthtVars.harvest = false
+    end
+    pthtVars.limiter = 0
+    pthtVars.current = 1
+    pthtVars.remoteEmpty = true
+    pthtVars.counter = 0
+    pthtVars.uwsUsed = 0
+    pthtVars.iM = 0
 
     ChangeValue("[C] Modfly", true)
+    pthtTextO("PTHT started. Mode: " .. (pthtVars.plant and "Plant" or "Harvest"))
 
     while pthtRunning and not pthtStop do
-        local loopValue = pthtConfig.loop
-        if type(loopValue) == "string" and loopValue:lower() == "unli" then
-            while pthtRunning and not pthtStop do
-                pthtReconnect()
-                Sleep(100)
-            end
-        elseif type(loopValue) == "number" then
-            repeat
-                pthtReconnect()
-                if pthtStop then break end
-                if (pthtVars.counter // 2) + 1 >= loopValue then
-                    pthtRotation()
-                    pthtTextO("PTHT DONE")
-                    break
-                end
-            until pthtStop
-        end
+        pthtReconnect()
+        Sleep(100)
     end
 
     pthtRunning = false
@@ -274,6 +275,13 @@ local function LoadSettings()
     end
 end
 
+-- Helper untuk status
+local function getModeName()
+    if pthtVars.plant then return "Planting"
+    elseif pthtVars.harvest then return "Harvesting"
+    else return "Idle" end
+end
+
 -- ==================== GUI ====================
 AddHook("OnDraw", "PTHTGUI", function(dt)
     if ImGui.Begin("Auto PTHT - Ertoxz", nil, ImGuiWindowFlags_NoCollapse) then
@@ -344,6 +352,18 @@ AddHook("OnDraw", "PTHTGUI", function(dt)
                 ImGui.EndTabItem()
             end
 
+            -- STATUS TAB
+            if ImGui.BeginTabItem("Status") then
+                ImGui.Text("Current Status: " .. currentStatus)
+                ImGui.Separator()
+                ImGui.Text("Mode: " .. getModeName())
+                ImGui.Text("Counter: " .. (pthtVars.counter or 0) .. " / " .. tostring(pthtConfig.loop))
+                ImGui.Text("UWS: " .. inv(12600))
+                ImGui.Text("Limiter: " .. pthtVars.limiter)
+                ImGui.Text("Magplant Index: " .. pthtVars.current)
+                ImGui.Text("Remote Empty: " .. tostring(pthtVars.remoteEmpty))
+                ImGui.EndTabItem()
+            end
             ImGui.EndTabBar()
         end
         ImGui.End()
