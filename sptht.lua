@@ -1,4 +1,4 @@
--- ==================== SPTHT LOADER (DENGAN DETEKSI MAGPLANT OTOMATIS) ====================
+-- ==================== SPTHT LOADER (POLA ZIGZAG) ====================
 
 -- === KONFIGURASI ===
 Settings = {
@@ -8,7 +8,7 @@ Settings = {
   delayPlant = 150,
   UseUws = false,
   delayHarvest = 250,
-  MagBG = 284,           -- Background ID magplant (sama seperti PTHT)
+  MagBG = 284,           -- Background ID magplant
   World = "island"
 }
 
@@ -27,7 +27,7 @@ local stopRequested = false
 local currentStatus = "Idle"
 local thread = nil
 
--- === FUNGSI ASLI (DIMODIFIKASI) ===
+-- === FUNGSI-FUNGSI ===
 function IsReady(tile)
   return tile and tile.extra and tile.extra.progress == 1.0
 end
@@ -44,7 +44,7 @@ function Raw(t, s, v, x, y)
   })
 end
 
--- Fungsi untuk mendapatkan semua magplant dengan background tertentu
+-- Mendapatkan semua magplant dengan background tertentu
 function GetMagplant()
   local Found = {}
   for x = 0, 199 do
@@ -58,7 +58,7 @@ function GetMagplant()
   return Found
 end
 
--- Fungsi mengambil remote magplant (sama seperti PTHT)
+-- Mengambil remote magplant
 function TakeMagplant()
   Mag = GetMagplant()
   if #Mag == 0 then
@@ -91,7 +91,7 @@ function checkseed()
   return count
 end
 
--- Fungsi menanam di satu tile (teleport dulu baru place seed)
+-- Menanam di satu tile (teleport dulu baru place seed)
 function plantAt(x, y, isSplice)
   if stopRequested then return false end
   local tile = GetTile(x, y)
@@ -109,42 +109,53 @@ function plantAt(x, y, isSplice)
   return false
 end
 
--- Fungsi menanam dalam satu baris X
-function plantLine(x, splice)
-  for y = y2, y1, -1 do
-    if stopRequested then return end
-    plantAt(x, y, splice)
-  end
-end
-
--- Fungsi utama penanaman
-function doPlanting(startX, endX)
-  for x = startX, endX, 10 do
+-- Fungsi menanam dengan pola zigzag
+function plantZigzag()
+  local maxX = (Settings.World == "normal" and 99 or 199)
+  local direction = 1  -- 1 = kiri ke kanan, -1 = kanan ke kiri
+  local startX, endX, step
+  
+  for y = y2, y1, -1 do  -- Dari atas ke bawah
     if stopRequested then return end
     
-    -- Cek apakah perlu ganti remote
-    if chgremote then
-      C = (C % #Mag) + 1
-      TakeMagplant()
-      chgremote = false
-      limit = 0
+    -- Tentukan arah berdasarkan baris
+    if direction == 1 then
+      startX = 0
+      endX = maxX
+      step = 1
+    else
+      startX = maxX
+      endX = 0
+      step = -1
     end
     
-    -- Tanam dengan FirstMagplant (splice false)
-    plantLine(x, false)
-    plantLine(x, false)
-    Sleep(200)
-    
-    -- Tanam dengan splice (true)
-    plantLine(x, true)
-    plantLine(x, true)
-    Sleep(200)
-    
-    -- Update limit (simulasi pengecekan, bisa disesuaikan)
-    limit = limit + 1
-    if limit >= 30 then
-      chgremote = true
+    -- Loop setiap tile di baris ini
+    for x = startX, endX, step do
+      if stopRequested then return end
+      
+      -- Cek apakah perlu ganti remote
+      if chgremote then
+        C = (C % #Mag) + 1
+        TakeMagplant()
+        chgremote = false
+        limit = 0
+      end
+      
+      -- Tanam seed biasa
+      plantAt(x, y, false)
+      
+      -- Tanam seed splice (seed kedua)
+      plantAt(x, y, true)
+      
+      -- Update limit
+      limit = limit + 1
+      if limit >= 30 then
+        chgremote = true
+      end
     end
+    
+    -- Balik arah untuk baris berikutnya
+    direction = direction * -1
   end
 end
 
@@ -198,11 +209,8 @@ local function runSPTHT()
         Sleep(1500)
         
         if stopRequested then break end
-        if Settings.World == "normal" then
-            doPlanting(0, 100)
-        elseif Settings.World == "island" then
-            doPlanting(0, 190)
-        end
+        -- Tanam dengan pola zigzag
+        plantZigzag()
         
         if stopRequested then break end
         Sleep(1000)
