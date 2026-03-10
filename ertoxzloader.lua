@@ -44,6 +44,9 @@ AddHook("OnDraw", "ErtoxzGUI", function()
         if ImGui.Button("AUTO PnB", 200, 40) then
             run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/pnb.lua")
         end
+        if ImGui.Button("AUTO SPTHT", 200, 40) then
+            run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/sptht.lua")
+        end
     end
     ImGui.End()
 end)
