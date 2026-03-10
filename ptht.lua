@@ -1,23 +1,29 @@
--- ==================== PTHT 2.0 LOADER (TANPA UBAH SCRIPT ASLI) ====================
+-- ==================== SPTHT DENGAN SISTEM PTHT ====================
 
--- === KONFIGURASI (SAMA PERSIS DENGAN SCRIPT ASLI) ===
+-- === KONFIGURASI ===
 Settings = {
-  whUse = true,
-  Webhook = "Webook",
-  
-  StartingPos = {0, 192}, -- ( x, y ) --
-  MagBG = 284, -- (Magplant Background ) --
-  SeedID = 15461, 
-  TotalPTHT = 20, 
-  MaxTree = 17000, 
-  
-  SecondAcc = false,
-  -- true = planting from right, not harvesting, not using uws
-  DelayPT = 25, -- ( Delay Planting ) --
-  DelayHT = 200, -- ( Delay Harvesting ) --
-  DelayAfterPT = 8000, -- ( Delay after planting for second account ) --
-  DelayAfterUWS = 2500, -- ( Delay after using uws ) --
+  lineY = 192,
+  amtseed = 2000,
+  FirstSeed = 117,
+  delayPlant = 150,
+  UseUws = false,
+  delayHarvest = 250,
+  MagBG = 284,           -- Background ID magplant
+  World = "island",
+  mray = true,           -- Mode MRAY (true = 10 tile per step)
+  SecondAcc = false,     -- Jika true, mulai dari kanan
+  plantLimit = 200       -- Limit per magplant
 }
+
+-- === VARIABEL GLOBAL ===
+y1 = 0
+y2 = Settings.lineY
+Mag = {}                 -- Menyimpan semua magplant yang ditemukan
+currentMagIndex = 1      -- Index magplant yang sedang digunakan
+magLimits = {}           -- Menyimpan limit per magplant
+World = ""
+plant = true             -- Mode plant
+harvest = false          -- Mode harvest
 
 -- === VARIABEL KONTROL ===
 local running = false
@@ -25,86 +31,35 @@ local stopRequested = false
 local currentStatus = "Idle"
 local thread = nil
 
--- === FUNGSI ASLI (DISALIN PERSIS) ===
-function Hah4(str)
-	str = str:gsub("``", "")
-	str = str:gsub("`.", "")
-	str = str:gsub("@", ""):gsub(" of Legend", ""):gsub("%[BOOST%]", "")
-	str = str:gsub("%[ELITE%]", ""):gsub(" ", "")
-	return str
+-- === FUNGSI-FUNGSI ===
+function IsReady(tile)
+  return tile and tile.extra and tile.extra.progress == 1.0
 end
-
-GrowID = Hah4(GetLocal().name)
-t = 0
-chgremote = true
-plant = true
-harvest = false
-World = GetWorld().name
 
 function Log(x)
-	LogToConsole("`0[`9Lantas`0] "..x)
+    LogToConsole("`0[`9SPTHT`0] "..x)
 end
 
-function Join(w)
-	SendPacket(3, "action|join_request\nname|".. w .."|\ninvitedWorld|0")
-end
- 
 function Raw(t, s, v, x, y)
-  pkt = {
-    type = t,
-    state = s,
+  SendPacketRaw(false, {
+    type = t, 
+    state = s, 
     value = v,
     px = x, 
     py = y,
-    x = x * 32,
+    x = x * 32, 
     y = y * 32
-  }
-  SendPacketRaw(false, pkt)
+  })
 end
 
-function inv(id)
-	local count = 0
-	for _, item in pairs(GetInventory()) do
-		if item.id == id then
-			count = count + item.amount
-		end
-	end
-	return count
-end
-
-function SendWebhook(url, data)
-  MakeRequest(url, "POST", {["Content-Type"] = "application/json"}, data)
-end
-
-function GetTree()
-	local Tree = 0
-	for y = Settings.StartingPos[2], 0, - 1 do
-	 for x = Settings.StartingPos[1], 199, 1 do
-	  if (GetTile(x,y).fg == Settings.SeedID) then
-		Tree = Tree + 1
-	  end
-	end
-  end
-  return Tree
-end
-
-function GetHarvest()
-	local Harvest = 0
-	for y = Settings.StartingPos[2], 0, - 1 do
-	for x = Settings.StartingPos[1], 199, 1 do
-	  if (GetTile(x,y).fg == Settings.SeedID and GetTile(x,y).extra.progress == 1) then
-		Harvest = Harvest + 1
-	  end
-	end
-  end
-  return Harvest
-end
-
+-- Mendapatkan semua magplant dengan background tertentu
 function GetMagplant()
   local Found = {}
-  for x = 0, 199 do
+  local maxX = (Settings.World == "normal" and 99 or 199)
+  for x = 0, maxX do
     for y = 0, 199 do
-      if GetTile(x, y).fg == 5638 and GetTile(x, y).bg == Settings.MagBG then
+      local tile = GetTile(x, y)
+      if tile and tile.fg == 5638 and tile.bg == Settings.MagBG then
         table.insert(Found, {x, y})
       end
     end
@@ -112,205 +67,215 @@ function GetMagplant()
   return Found
 end
 
-function chgmode()
-  if plant then
-    plant = false
-    if GetTree() >= Settings.MaxTree and not Settings.SecondAcc then
-      harvest = true
-      SendPacket(2, "action|dialog_return\ndialog_name|ultraworldspray")
-      Sleep(Settings.DelayAfterUWS)
-      Log("Harvesting....")
-      harvest = true
-    elseif GetTree() >= Settings.MaxTree and Settings.SecondAcc then
-      Sleep(Settings.DelayAfterPT * 2)
-      plant = true
-      Log("Planting....")
-    elseif GetTree() < Settings.MaxTree then
-      plant = true
-      Log("Re-Planting....")
-    end
-    Sleep(2000)
-  elseif harvest then
-    harvest = false
-    if GetHarvest() < 500 and not Settings.SecondAcc then
-      Log("Planting...")
-      plant = true
-    elseif GetHarvest() > 0 and not Settings.SecondAcc then
-      harvest = true
-      Log("Re-Harvesting....")
-    end
-    Sleep(2000)
+-- Mengambil remote magplant berdasarkan index
+function TakeMagplant(index)
+  if #Mag == 0 then
+    Log("Tidak ada magplant ditemukan!")
+    return false
   end
-end
-      
-
-C = 1
-function TakeMagplant()
-  Mag = GetMagplant()
-  if #Mag > 0 then
-    Raw(0, 0, 0, Mag[C][1], Mag[C][2])
-    Sleep(300)
-    Raw(3, 0, 32, Mag[C][1], Mag[C][2])
-    Sleep(300)
-    SendPacket(2, "action|dialog_return\ndialog_name|magplant_edit\nx|" .. Mag[C][1] .. "|\ny|" .. Mag[C][2] .. "|\nbuttonClicked|getRemote")
-    Sleep(500)
-    getremote = false
-  end
+  
+  if index > #Mag then index = 1 end
+  local m = Mag[index]
+  
+  Log("Mengambil remote magplant #" .. index .. " di (" .. m[1] .. "," .. m[2] .. ")")
+  Raw(0, 0, 0, m[1], m[2])
+  Sleep(300)
+  Raw(3, 0, 32, m[1], m[2])
+  Sleep(300)
+  SendPacket(2, "action|dialog_return\ndialog_name|magplant_edit\nx|" .. m[1] .. "|\ny|" .. m[2] .. "|\nbuttonClicked|getRemote")
+  Sleep(500)
+  return true
 end
 
-limit = 0
-
-function Ptht()
-  for x = (Settings.SecondAcc and 199 or Settings.StartingPos[1]), (Settings.SecondAcc and Settings.StartingPos[1] or 199), (Settings.SecondAcc and -10 or 10) do
-    if GetWorld() == nil or GetWorld().name ~= World or chgremote or stopRequested then
-      return
+-- Fungsi menanam dengan sistem PTHT
+function plantPTHT()
+    local sizeX = (Settings.World == "normal" and 100 or 200)
+    local put = Settings.mray and 10 or 1
+    local startX, endX, stepX
+    
+    -- Tentukan arah berdasarkan SecondAcc
+    if Settings.SecondAcc then
+        startX = 199
+        endX = 0
+        stepX = -10
     else
-      Log("`2".. (plant and "Planting on X: "..x or "Harvesting"))
-      for i = 1, 2 do
-        if GetWorld() == nil or GetWorld().name ~= World or chgremote or stopRequested then
-          return
-        else
-          for y = Settings.StartingPos[2], 0, -2 do
-            if GetWorld() == nil or GetWorld().name ~= World or chgremote or stopRequested then
-              return
-            else
-              if (plant and GetTile(x,y).fg == 0 and GetTile(x,y+1).fg ~= 0) or (harvest and GetTile(x,y).fg == Settings.SeedID and GetTile(x,y).extra and GetTile(x,y).extra.progress == 1) then
-                Raw(0, (Settings.SecondAcc and 48 or 32), 0, x, y)
-                Raw(0, (Settings.SecondAcc and 48 or 32), 0, x, y)
-                Sleep(600)
-                Raw(3, 0, (plant and 5640 or 18), x, y)
-                Sleep(plant and Settings.DelayPT or Settings.DelayHT)
-                px = x +1
-                if GetWorld() == nil or GetWorld().name ~= World or chgremote or stopRequested then
-                  return
-                elseif GetTile(px, y+2).fg == Settings.SeedID then
-                  limit = 0
-                else
-                  limit = limit + 1
-                end
-              end
-              if limit >= 200 then
-                C = C < #Mag and C + 1 or 1
-                limit = 0
-                chgremote = true
-                return
-              end
+        startX = 0
+        endX = 199
+        stepX = 10
+    end
+    
+    for x = startX, endX, stepX do
+        if stopRequested then return end
+        
+        -- Cek limit magplant saat ini
+        if magLimits[currentMagIndex] == nil then
+            magLimits[currentMagIndex] = 0
+        end
+        
+        if magLimits[currentMagIndex] >= Settings.plantLimit then
+            -- Ganti ke magplant berikutnya
+            local oldIndex = currentMagIndex
+            currentMagIndex = currentMagIndex + 1
+            if currentMagIndex > #Mag then
+                currentMagIndex = 1
             end
-          end
+            
+            Log("Limit magplant #" .. oldIndex .. " habis, beralih ke #" .. currentMagIndex)
+            
+            if not TakeMagplant(currentMagIndex) then
+                Log("Gagal mengambil remote magplant #" .. currentMagIndex)
+                return
+            end
+            magLimits[currentMagIndex] = 0
         end
-      end
+        
+        -- Loop 2 kali untuk setiap X (seperti PTHT)
+        for loop = 1, 2 do
+            if stopRequested then return end
+            for y = Settings.lineY, 0, -2 do
+                if stopRequested then return end
+                local tile = GetTile(x, y)
+                if tile and tile.fg == 0 then
+                    Log("Planting at X:"..x.." Y:"..y)
+                    FindPath(x, y - 1, 520)
+                    Sleep(1)
+                    Raw(0, (Settings.SecondAcc and 48 or 32), 0, x, y)
+                    Sleep(1)
+                    Raw(3, 0, 5640, x, y)
+                    Sleep(Settings.delayPlant)
+                    magLimits[currentMagIndex] = magLimits[currentMagIndex] + 1
+                end
+            end
+        end
     end
-  end
-  if GetWorld() == nil or GetWorld().name ~= World or chgremote or stopRequested then
-    return
-  else
-    chgmode()
-    if plant and t < Settings.TotalPTHT then
-      t = t + 1
-      if Settings.whUse then
-        local payload = [[
-{
-  "embeds": [
-    {
-      "title": "PTHT 2.0 BY LANTAS CONTINENTAL",
-      "color": 65362,
-      "fields": [
-        {
-          "name": "📜 Account",
-          "value": "]].. GrowID ..[[",
-          "inline": false
-        },
-        {
-          "name": "🌍 World",
-          "value": "]].. World ..[[",
-          "inline": true
-        },
-        {
-          "name": "🔮 Magplant",
-          "value": "]].. C ..[[ of ]].. #Mag ..[[ Done",
-          "inline": true
-        },
-        {
-          "name": "🌾 Status",
-          "value": "]].. t ..[[ / ]].. Settings.TotalPTHT ..[[",
-          "inline": true
-        },
-        {
-          "name": "🔐 UWS",
-          "value": "]].. inv(12600) ..[[ PCs",
-          "inline": true
-        }
-      ],
-      "footer": {
-        "text": "Updated: ]].. os.date("%Y-%m-%d %H:%M:%S") ..[["
-      }
-    }
-  ]
-}
-]]
-        SendWebhook(Settings.Webhook, payload)
-      end
-      Log("Done")
-    end
-  end
 end
 
-function reconnect()
-  if GetWorld() == nil or GetWorld().name ~= World then
-    Join(World)
-    Sleep(5000)
-    chgremote = true
-  else
-    if chgremote then
-      TakeMagplant()
-      chgremote = false
-    end
-    if not stopRequested then
-      Ptht()
-    end
-  end
-end
-
--- === FUNGSI UTAMA YANG DIJALANKAN DI THREAD ===
-local function runPTHT()
-    -- Reset variabel global
-    t = 0
-    plant = true
-    harvest = false
-    C = 1
-    limit = 0
-    chgremote = true
-    World = GetWorld().name
-    GrowID = Hah4(GetLocal().name)
-
-    if type(Settings.TotalPTHT) == "number" then
-        while running and not stopRequested and t < Settings.TotalPTHT do
-            reconnect()
-            Sleep(2000)
-        end
+-- Fungsi panen (mirip PTHT)
+function harvestPTHT()
+    local sizeX = (Settings.World == "normal" and 100 or 200)
+    local put = Settings.mray and 10 or 1
+    local startX, endX, stepX
+    
+    if Settings.SecondAcc then
+        startX = 199
+        endX = 0
+        stepX = -10
     else
-        while running and not stopRequested do
-            reconnect()
-            Sleep(2000)
+        startX = 0
+        endX = 199
+        stepX = 10
+    end
+    
+    for x = startX, endX, stepX do
+        if stopRequested then return end
+        for loop = 1, 2 do
+            if stopRequested then return end
+            for y = Settings.lineY, 0, -2 do
+                if stopRequested then return end
+                local tile = GetTile(x, y)
+                if tile and tile.fg == Settings.FirstSeed and IsReady(tile) then
+                    Log("Harvesting at X:"..x.." Y:"..y)
+                    FindPath(x, y, 520)
+                    Sleep(1)
+                    Raw(3, 0, 18, x, y)
+                    Sleep(Settings.delayHarvest)
+                end
+            end
         end
     end
+end
 
+function UseUws()
+  if Settings.UseUws then
+    SendPacket(2, "action|dialog_return\ndialog_name|ultraworldspray")
+    Sleep(5000)
+  end
+end
+
+-- Fungsi untuk mengecek jumlah seed siap panen
+function checkReadySeeds()
+    local count = 0
+    for y = Settings.lineY, 0, -2 do
+        for x = 0, 199 do
+            local tile = GetTile(x, y)
+            if tile and tile.fg == Settings.FirstSeed and IsReady(tile) then
+                count = count + 1
+            end
+        end
+    end
+    return count
+end
+
+-- === FUNGSI UTAMA ===
+local function runSPTHT()
+    -- Inisialisasi
+    World = GetWorld().name
+    
+    -- Dapatkan semua magplant
+    Mag = GetMagplant()
+    if #Mag == 0 then
+        Log("Tidak ada magplant ditemukan!")
+        running = false
+        return
+    end
+    Log("Ditemukan " .. #Mag .. " magplant")
+    
+    -- Inisialisasi limit untuk setiap magplant
+    for i = 1, #Mag do
+        magLimits[i] = 0
+    end
+    
+    -- Ambil remote magplant pertama
+    currentMagIndex = 1
+    if not TakeMagplant(currentMagIndex) then
+        Log("Gagal mengambil remote magplant pertama")
+        running = false
+        return
+    end
+    
+    while running and not stopRequested do
+        -- Mode PLANT
+        plant = true
+        harvest = false
+        Log("Mode: PLANT")
+        plantPTHT()
+        if stopRequested then break end
+        
+        Sleep(1000)
+        
+        -- Mode HARVEST
+        plant = false
+        harvest = true
+        Log("Mode: HARVEST")
+        harvestPTHT()
+        if stopRequested then break end
+        
+        -- Gunakan UWS jika diaktifkan
+        UseUws()
+        Sleep(5000)
+        
+        -- Reset limit untuk siklus berikutnya (opsional)
+        -- for i = 1, #Mag do
+        --     magLimits[i] = 0
+        -- end
+    end
+    
     running = false
     currentStatus = "Stopped"
-    Log("PTHT stopped")
+    Log("SPTHT stopped")
 end
 
 -- === FUNGSI START/STOP ===
-local function startPTHT()
+local function startSPTHT()
     if running then return end
     running = true
     stopRequested = false
     currentStatus = "Running"
-    thread = RunThread(runPTHT)
-    Log("PTHT started")
+    thread = RunThread(runSPTHT)
+    Log("SPTHT started")
 end
 
-local function stopPTHT()
+local function stopSPTHT()
     if running then
         stopRequested = true
         currentStatus = "Stopping..."
@@ -319,110 +284,103 @@ end
 
 -- === FUNGSI SAVE/LOAD ===
 local function SaveSettings()
-    local file = io.open("storage/emulated/0/android/media/com.rtsoft.growtopia/scripts/PTHT2_SETTINGS.txt", "w")
+    local file = io.open("storage/emulated/0/android/media/com.rtsoft.growtopia/scripts/SPTHT_SETTINGS.txt", "w")
     if file then
-        file:write("whUse=" .. tostring(Settings.whUse) .. "\n")
-        file:write("Webhook=" .. Settings.Webhook .. "\n")
-        file:write("StartingPosX=" .. Settings.StartingPos[1] .. "\n")
-        file:write("StartingPosY=" .. Settings.StartingPos[2] .. "\n")
+        file:write("lineY=" .. Settings.lineY .. "\n")
+        file:write("amtseed=" .. Settings.amtseed .. "\n")
+        file:write("FirstSeed=" .. Settings.FirstSeed .. "\n")
+        file:write("delayPlant=" .. Settings.delayPlant .. "\n")
+        file:write("UseUws=" .. tostring(Settings.UseUws) .. "\n")
+        file:write("delayHarvest=" .. Settings.delayHarvest .. "\n")
         file:write("MagBG=" .. Settings.MagBG .. "\n")
-        file:write("SeedID=" .. Settings.SeedID .. "\n")
-        file:write("TotalPTHT=" .. Settings.TotalPTHT .. "\n")
-        file:write("MaxTree=" .. Settings.MaxTree .. "\n")
+        file:write("World=" .. Settings.World .. "\n")
+        file:write("mray=" .. tostring(Settings.mray) .. "\n")
         file:write("SecondAcc=" .. tostring(Settings.SecondAcc) .. "\n")
-        file:write("DelayPT=" .. Settings.DelayPT .. "\n")
-        file:write("DelayHT=" .. Settings.DelayHT .. "\n")
-        file:write("DelayAfterPT=" .. Settings.DelayAfterPT .. "\n")
-        file:write("DelayAfterUWS=" .. Settings.DelayAfterUWS .. "\n")
+        file:write("plantLimit=" .. Settings.plantLimit .. "\n")
         file:close()
-        LogToConsole("`2Settings saved.")
+        Log("`2Settings saved.")
     else
-        LogToConsole("`4Failed to save settings.")
+        Log("`4Failed to save settings.")
     end
 end
 
 local function LoadSettings()
-    local file = io.open("storage/emulated/0/android/media/com.rtsoft.growtopia/scripts/PTHT2_SETTINGS.txt", "r")
+    local file = io.open("storage/emulated/0/android/media/com.rtsoft.growtopia/scripts/SPTHT_SETTINGS.txt", "r")
     if file then
         for line in file:lines() do
             local key, value = line:match("([^=]+)=(.+)")
             if key and value then
-                if key == "whUse" then Settings.whUse = (value == "true")
-                elseif key == "Webhook" then Settings.Webhook = value
-                elseif key == "StartingPosX" then Settings.StartingPos[1] = tonumber(value)
-                elseif key == "StartingPosY" then Settings.StartingPos[2] = tonumber(value)
+                if key == "lineY" then Settings.lineY = tonumber(value)
+                elseif key == "amtseed" then Settings.amtseed = tonumber(value)
+                elseif key == "FirstSeed" then Settings.FirstSeed = tonumber(value)
+                elseif key == "delayPlant" then Settings.delayPlant = tonumber(value)
+                elseif key == "UseUws" then Settings.UseUws = (value == "true")
+                elseif key == "delayHarvest" then Settings.delayHarvest = tonumber(value)
                 elseif key == "MagBG" then Settings.MagBG = tonumber(value)
-                elseif key == "SeedID" then Settings.SeedID = tonumber(value)
-                elseif key == "TotalPTHT" then Settings.TotalPTHT = tonumber(value)
-                elseif key == "MaxTree" then Settings.MaxTree = tonumber(value)
+                elseif key == "World" then Settings.World = value
+                elseif key == "mray" then Settings.mray = (value == "true")
                 elseif key == "SecondAcc" then Settings.SecondAcc = (value == "true")
-                elseif key == "DelayPT" then Settings.DelayPT = tonumber(value)
-                elseif key == "DelayHT" then Settings.DelayHT = tonumber(value)
-                elseif key == "DelayAfterPT" then Settings.DelayAfterPT = tonumber(value)
-                elseif key == "DelayAfterUWS" then Settings.DelayAfterUWS = tonumber(value)
+                elseif key == "plantLimit" then Settings.plantLimit = tonumber(value)
                 end
             end
         end
         file:close()
-        LogToConsole("`2Settings loaded.")
+        Log("`2Settings loaded.")
     else
-        LogToConsole("`3No settings file found.")
+        Log("`3No settings file found.")
     end
 end
 
 -- === GUI ===
-AddHook("OnDraw", "PTHT2GUI", function(dt)
-    if ImGui.Begin("PTHT 2.0 Loader - Ertoxz", nil, ImGuiWindowFlags_NoCollapse) then
-        if ImGui.BeginTabBar("PTHTTabs") then
+AddHook("OnDraw", "SPTHTGUI", function(dt)
+    if ImGui.Begin("SPTHT Loader - Ertoxz", nil, ImGuiWindowFlags_NoCollapse) then
+        if ImGui.BeginTabBar("SPTHTTabs") then
             -- MAIN TAB
             if ImGui.BeginTabItem("Main") then
-                ImGui.Text("PTHT 2.0 Settings")
+                ImGui.Text("SPTHT Settings (PTHT Style)")
                 ImGui.Separator()
 
-                local changedWh, newWh = ImGui.Checkbox("Use Webhook", Settings.whUse)
-                if changedWh then Settings.whUse = newWh end
+                local changedLineY, newLineY = ImGui.InputInt("Line Y", Settings.lineY, 1, 10)
+                if changedLineY then Settings.lineY = newLineY end
 
-                local changedWeb, newWeb = ImGui.InputText("Webhook URL", Settings.Webhook, 200)
-                if changedWeb then Settings.Webhook = newWeb end
+                local changedAmt, newAmt = ImGui.InputInt("Seed Amount", Settings.amtseed, 100, 1000)
+                if changedAmt then Settings.amtseed = newAmt end
 
-                local changedStartX, newStartX = ImGui.InputInt("Starting Pos X", Settings.StartingPos[1], 1, 10)
-                if changedStartX then Settings.StartingPos[1] = newStartX end
-                local changedStartY, newStartY = ImGui.InputInt("Starting Pos Y", Settings.StartingPos[2], 1, 10)
-                if changedStartY then Settings.StartingPos[2] = newStartY end
+                local changedFirstSeed, newFirstSeed = ImGui.InputInt("First Seed ID", Settings.FirstSeed, 1, 100)
+                if changedFirstSeed then Settings.FirstSeed = newFirstSeed end
+
+                local changedDelayPlant, newDelayPlant = ImGui.InputInt("Delay Plant", Settings.delayPlant, 1, 10)
+                if changedDelayPlant then Settings.delayPlant = newDelayPlant end
+
+                local changedDelayHarvest, newDelayHarvest = ImGui.InputInt("Delay Harvest", Settings.delayHarvest, 1, 10)
+                if changedDelayHarvest then Settings.delayHarvest = newDelayHarvest end
+
+                local changedUseUws, newUseUws = ImGui.Checkbox("Use UWS", Settings.UseUws)
+                if changedUseUws then Settings.UseUws = newUseUws end
 
                 local changedMagBG, newMagBG = ImGui.InputInt("Magplant Background", Settings.MagBG, 1, 100)
                 if changedMagBG then Settings.MagBG = newMagBG end
 
-                local changedSeed, newSeed = ImGui.InputInt("Seed ID", Settings.SeedID, 1, 100)
-                if changedSeed then Settings.SeedID = newSeed end
-
-                local changedTotal, newTotal = ImGui.InputInt("Total PTHT", Settings.TotalPTHT, 1, 10)
-                if changedTotal then Settings.TotalPTHT = newTotal end
-
-                local changedMax, newMax = ImGui.InputInt("Max Tree", Settings.MaxTree, 100, 1000)
-                if changedMax then Settings.MaxTree = newMax end
-
-                local changedSecond, newSecond = ImGui.Checkbox("Second Account", Settings.SecondAcc)
+                local changedWorld, newWorld = ImGui.InputText("World Type (normal/island)", Settings.World, 30)
+                if changedWorld then Settings.World = newWorld end
+                
+                local changedMray, newMray = ImGui.Checkbox("MRAY Mode", Settings.mray)
+                if changedMray then Settings.mray = newMray end
+                
+                local changedSecond, newSecond = ImGui.Checkbox("Second Account (Start from right)", Settings.SecondAcc)
                 if changedSecond then Settings.SecondAcc = newSecond end
-
-                ImGui.Text("Delays (ms):")
-                local changedDelayPT, newDelayPT = ImGui.InputInt("Plant Delay", Settings.DelayPT, 1, 10)
-                if changedDelayPT then Settings.DelayPT = newDelayPT end
-                local changedDelayHT, newDelayHT = ImGui.InputInt("Harvest Delay", Settings.DelayHT, 1, 10)
-                if changedDelayHT then Settings.DelayHT = newDelayHT end
-                local changedAfterPT, newAfterPT = ImGui.InputInt("Delay After PT", Settings.DelayAfterPT, 100, 1000)
-                if changedAfterPT then Settings.DelayAfterPT = newAfterPT end
-                local changedAfterUWS, newAfterUWS = ImGui.InputInt("Delay After UWS", Settings.DelayAfterUWS, 100, 1000)
-                if changedAfterUWS then Settings.DelayAfterUWS = newAfterUWS end
+                
+                local changedLimit, newLimit = ImGui.InputInt("Plant Limit per Magplant", Settings.plantLimit, 10, 100)
+                if changedLimit then Settings.plantLimit = newLimit end
 
                 ImGui.Separator()
                 if not running then
-                    if ImGui.Button("Start PTHT", 120, 30) then
-                        startPTHT()
+                    if ImGui.Button("Start SPTHT", 120, 30) then
+                        startSPTHT()
                     end
                 else
-                    if ImGui.Button("Stop PTHT", 120, 30) then
-                        stopPTHT()
+                    if ImGui.Button("Stop SPTHT", 120, 30) then
+                        stopSPTHT()
                     end
                 end
                 ImGui.SameLine()
@@ -438,14 +396,22 @@ AddHook("OnDraw", "PTHT2GUI", function(dt)
                 ImGui.Text("Current Status: " .. currentStatus)
                 ImGui.Separator()
                 ImGui.Text("World: " .. (GetWorld() and GetWorld().name or "None"))
-                ImGui.Text("Trees: " .. (GetWorld() and GetTree() or 0))
-                ImGui.Text("Harvest Ready: " .. (GetWorld() and GetHarvest() or 0))
-                ImGui.Text("PTHT Count: " .. t .. " / " .. Settings.TotalPTHT)
-                ImGui.Text("UWS: " .. inv(12600))
-                ImGui.Text("Magplant Index: " .. C)
-                ImGui.Text("Limit: " .. limit)
+                ImGui.Text("Ready Seeds: " .. checkReadySeeds())
+                ImGui.Text("Magplants Found: " .. #Mag)
+                ImGui.Text("Current Magplant: " .. currentMagIndex)
+                if magLimits[currentMagIndex] then
+                    ImGui.Text("Current Limit: " .. magLimits[currentMagIndex] .. "/" .. Settings.plantLimit)
+                end
+                ImGui.Text("Mode: " .. (plant and "PLANT" or (harvest and "HARVEST" or "IDLE")))
                 ImGui.EndTabItem()
             end
+
+            -- CREDITS TAB
+            if ImGui.BeginTabItem("Credits") then
+                ImGui.Text("SPTHT Script by Ertoxz")
+                ImGui.EndTabItem()
+            end
+
             ImGui.EndTabBar()
         end
         ImGui.End()
@@ -454,4 +420,4 @@ end)
 
 -- Load settings saat start
 LoadSettings()
-LogToConsole("PTHT 2.0 Loader ready. Use GUI to start.")
+LogToConsole("SPTHT Loader ready. Use GUI to start.")
