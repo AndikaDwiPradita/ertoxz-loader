@@ -76,7 +76,7 @@ function plantLine(x, splice)
       LogToConsole("Planting On X: "..x)
       Raw(0, 32, 0, x, y)
       Raw(0, 32, 0, x, y)
-      Sleep(100)
+      Sleep(750)
       Raw(3, 0, 5640, x, y)
       Sleep(Settings.delayPlant)
     end
@@ -90,13 +90,13 @@ function doPlanting(startX, endX)
     TakeMagplant(Settings.FirstMagplant, "getRemote")
     plantLine(x, false)
     plantLine(x, false)
-    Sleep(200)
+    Sleep(750)
 
     TakeMagplant(Settings.TwoMagplant, "getRemote")
     TakeMagplant(Settings.TwoMagplant, "getRemote")
     plantLine(x, true)
     plantLine(x, true)
-    Sleep(200)
+    Sleep(750)
   end
 end
 
