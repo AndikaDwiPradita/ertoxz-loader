@@ -1,29 +1,16 @@
--- ERTOXZ Loader - Super Simple (FIXED)
+-- ERTOXZ Loader - Super Simple
 -- Simpan sebagai "ertoxz_loader.lua", lalu jalankan.
 
--- Fungsi untuk mengambil dan menjalankan script dari URL
 local function run(url)
     -- Jalankan di thread agar tidak mengganggu GUI
     RunThread(function()
-        local response = MakeRequest(url, "GET", {["User-Agent"] = "Mozilla/5.0"})
-        if response and response.status == 200 then
-            local func, err = loadstring(response.content)
-            if func then
-                pcall(func)
-            else
-                LogToConsole("`4Error: " .. tostring(err))
-            end
-        else
-            LogToConsole("`4Gagal mengambil script dari: " .. url)
-        end
+        load(MakeRequest(url).content)()
     end)
 end
 
 AddHook("OnDraw", "ErtoxzGUI", function()
     if ImGui.Begin("ERTOXZ Loader") then
         ImGui.Text("Pilih fitur:")
-        ImGui.Separator()
-        
         if ImGui.Button("PUT / BREAK PLAT", 200, 40) then
             run("https://raw.githubusercontent.com/AndikaDwiPradita/ertoxz-loader/main/putbreak.lua")
         end
@@ -64,4 +51,4 @@ AddHook("OnDraw", "ErtoxzGUI", function()
     ImGui.End()
 end)
 
-LogToConsole("ERTOXZ Loader siap. Klik tombol untuk menjalankan fitur.")
+LogToConsole("Loader siap. Klik tombol untuk menjalankan fitur.")
