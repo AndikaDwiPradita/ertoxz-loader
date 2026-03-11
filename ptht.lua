@@ -1,6 +1,6 @@
--- ==================== PTHT DENGAN SISTEM PENANAMAN SPTHT ====================
+-- ==================== PTHT DENGAN SISTEM PENANAMAN SPTHT (GUI PTHT STANDAR) ====================
 
--- === KONFIGURASI (SAMA DENGAN PTHT) ===
+-- === KONFIGURASI (SAMA DENGAN PTHT ASLI) ===
 Settings = {
   whUse = true,
   Webhook = "Webook",
@@ -17,10 +17,13 @@ Settings = {
   DelayHT = 200, -- ( Delay Harvesting ) --
   DelayAfterPT = 8000, -- ( Delay after planting for second account ) --
   DelayAfterUWS = 2500, -- ( Delay after using uws ) --
-  
-  -- Tambahan dari SPTHT
-  World = "island", -- "normal", "island", "nether"
-  plantLimit = 30   -- Jumlah penanaman per magplant sebelum ganti remote
+}
+
+-- === KONSTANTA SPTHT (HARDCODED, TIDAK MUNCUL DI GUI) ===
+local SPTHT_CONFIG = {
+  World = "island",      -- "normal", "island", "nether"
+  plantLimit = 30,       -- jumlah tanam per magplant sebelum ganti remote
+  useZigzag = true,      -- true = pola zigzag, false = pola baris biasa
 }
 
 -- === VARIABEL GLOBAL ===
@@ -36,12 +39,12 @@ magLimits = {}           -- Limit per magplant
 limit = 0
 
 -- Variabel untuk penanaman zigzag
-y1 = 0
-y2 = Settings.StartingPos[2]  -- Starting Y
-targetX = 0
-targetY = y2
-targetDirection = 1      -- 1 = kiri ke kanan, -1 = kanan ke kiri
-maxX = 199               -- Akan disesuaikan
+local y1 = 0
+local y2 = Settings.StartingPos[2]
+local targetX = 0
+local targetY = y2
+local targetDirection = 1      -- 1 = kiri ke kanan, -1 = kanan ke kiri
+local maxX = (SPTHT_CONFIG.World == "normal" and 99 or 199)
 
 -- === VARIABEL KONTROL ===
 local running = false
@@ -59,7 +62,7 @@ function Hah4(str)
 end
 
 function Log(x)
-	LogToConsole("`0[`9PTHT-SPTHT`0] "..x)
+	LogToConsole("`0[`9PTHT`0] "..x)
 end
 
 function Join(w)
@@ -121,7 +124,7 @@ end
 -- === FUNGSI DARI SPTHT ===
 function GetMagplant()
   local Found = {}
-  local sizeX, sizeY = (Settings.World == "normal" and 100 or 200), (Settings.World == "normal" and 60 or 200)
+  local sizeX, sizeY = (SPTHT_CONFIG.World == "normal" and 100 or 200), (SPTHT_CONFIG.World == "normal" and 60 or 200)
   for x = 0, sizeX - 1 do
     for y = 0, sizeY - 1 do
       local tile = GetTile(x, y)
@@ -154,18 +157,18 @@ function TakeMagplant(index)
 end
 
 -- Manajemen posisi penanaman zigzag
-function resetTargetPosition()
+local function resetTargetPosition()
   targetX = 0
   targetY = Settings.StartingPos[2]
   targetDirection = 1
-  maxX = (Settings.World == "normal" and 99 or 199)
+  maxX = (SPTHT_CONFIG.World == "normal" and 99 or 199)
 end
 
-function getCurrentTarget()
+local function getCurrentTarget()
   return {x = targetX, y = targetY}
 end
 
-function advanceToNextTile()
+local function advanceToNextTile()
   local nextX = targetX + targetDirection
   local nextY = targetY
   
@@ -183,8 +186,8 @@ function advanceToNextTile()
   return true
 end
 
--- Penanaman per tile (mirip SPTHT)
-function plantAt(x, y)
+-- Penanaman per tile
+local function plantAt(x, y)
   if stopRequested then return false end
   local tile = GetTile(x, y)
   if tile and tile.fg == 0 then
@@ -194,16 +197,16 @@ function plantAt(x, y)
     Raw(0, 32, 0, x, y)
     Raw(0, 32, 0, x, y)
     Sleep(50)
-    Raw(3, 0, 5640, x, y)  -- Place seed
+    Raw(3, 0, 5640, x, y)
     Sleep(Settings.DelayPT)
     return true
   end
   return false
 end
 
--- Fungsi penanaman utama dengan manajemen magplant
-function plantWithMagplantManagement()
-  if plant == false then return end  -- Hanya jalan jika mode plant
+-- Fungsi penanaman utama
+local function plantWithMagplantManagement()
+  if plant == false then return end
   
   local tilesPlanted = 0
   
@@ -215,13 +218,11 @@ function plantWithMagplantManagement()
     
     local currentTile = getCurrentTarget()
     
-    -- Inisialisasi limit jika belum
     if magLimits[C] == nil then
       magLimits[C] = 0
     end
     
-    -- Jika limit habis, ganti magplant
-    if magLimits[C] >= Settings.plantLimit then
+    if magLimits[C] >= SPTHT_CONFIG.plantLimit then
       local oldC = C
       C = C + 1
       if C > #Mag then
@@ -236,10 +237,8 @@ function plantWithMagplantManagement()
       end
       
       magLimits[C] = 0
-      -- Lanjut ke tile yang SAMA
     end
     
-    -- Tanam
     local planted = plantAt(currentTile.x, currentTile.y)
     if planted then
       tilesPlanted = tilesPlanted + 1
@@ -248,7 +247,6 @@ function plantWithMagplantManagement()
         break
       end
     else
-      -- Tile tidak bisa ditanam, tetap maju
       if not advanceToNextTile() then
         break
       end
@@ -260,7 +258,7 @@ end
 
 -- Fungsi harvest (dari PTHT asli)
 function DoHarvest()
-  if harvest == false then return end  -- Hanya jalan jika mode harvest
+  if harvest == false then return end
   
   for x = (Settings.SecondAcc and 199 or Settings.StartingPos[1]), 
           (Settings.SecondAcc and Settings.StartingPos[1] or 199), 
@@ -315,14 +313,12 @@ end
 
 -- === FUNGSI UTAMA ===
 local function runPTHT()
-    -- Inisialisasi
     GrowID = Hah4(GetLocal().name)
     World = GetWorld().name
     y1 = 0
     y2 = Settings.StartingPos[2]
-    maxX = (Settings.World == "normal" and 99 or 199)
+    maxX = (SPTHT_CONFIG.World == "normal" and 99 or 199)
     
-    -- Set mode awal
     if Settings.SecondAcc then
         plant = true
         harvest = false
@@ -331,13 +327,11 @@ local function runPTHT()
         harvest = false
     end
     
-    -- Reset variabel
     t = 0
     C = 1
     limit = 0
     chgremote = true
     
-    -- Dapatkan semua magplant
     Mag = GetMagplant()
     if #Mag == 0 then
         Log("Tidak ada magplant ditemukan!")
@@ -346,44 +340,37 @@ local function runPTHT()
     end
     Log("Ditemukan " .. #Mag .. " magplant")
     
-    -- Inisialisasi limit
     for i = 1, #Mag do
         magLimits[i] = 0
     end
     
-    -- Ambil remote pertama
     if not TakeMagplant(C) then
         Log("Gagal mengambil remote pertama")
         running = false
         return
     end
     
-    -- Reset posisi target
     resetTargetPosition()
     
-    -- Loop utama PTHT
     while running and not stopRequested do
         if plant then
-            -- Mode planting (gunakan sistem SPTHT)
             plantWithMagplantManagement()
             
-            -- Setelah selesai planting, ganti mode
             if not stopRequested then
                 chgmode()
                 t = t + 1
                 
-                -- Kirim webhook
                 if Settings.whUse then
                     local payload = string.format([[
 {
   "embeds": [
     {
-      "title": "PTHT-SPTHT Status",
+      "title": "PTHT 2.0 BY LANTAS CONTINENTAL",
       "color": 65362,
       "fields": [
         {"name": "📜 Account", "value": "%s", "inline": false},
         {"name": "🌍 World", "value": "%s", "inline": true},
-        {"name": "🔮 Magplant", "value": "%d of %d", "inline": true},
+        {"name": "🔮 Magplant", "value": "%d of %d Done", "inline": true},
         {"name": "🌾 Status", "value": "%d / %d", "inline": true},
         {"name": "🔐 UWS", "value": "%d PCs", "inline": true}
       ],
@@ -395,11 +382,10 @@ local function runPTHT()
                     SendWebhook(Settings.Webhook, payload)
                 end
                 
-                Log("Planting cycle " .. t .. " completed")
+                Log("Done")
             end
             
         elseif harvest then
-            -- Mode harvesting
             DoHarvest()
             if not stopRequested then
                 chgmode()
@@ -411,7 +397,7 @@ local function runPTHT()
     
     running = false
     currentStatus = "Stopped"
-    Log("PTHT-SPTHT stopped")
+    Log("PTHT stopped")
 end
 
 -- === FUNGSI START/STOP ===
@@ -421,7 +407,7 @@ local function startPTHT()
     stopRequested = false
     currentStatus = "Running"
     thread = RunThread(runPTHT)
-    Log("PTHT-SPTHT started")
+    Log("PTHT started")
 end
 
 local function stopPTHT()
@@ -431,9 +417,9 @@ local function stopPTHT()
     end
 end
 
--- === FUNGSI SAVE/LOAD ===
+-- === FUNGSI SAVE/LOAD (SAMA PERSIS DENGAN PTHT ASLI) ===
 local function SaveSettings()
-    local file = io.open("storage/emulated/0/android/media/com.rtsoft.growtopia/scripts/PTHT_SPTHT_SETTINGS.txt", "w")
+    local file = io.open("storage/emulated/0/android/media/com.rtsoft.growtopia/scripts/PTHT_SETTINGS.txt", "w")
     if file then
         file:write("whUse=" .. tostring(Settings.whUse) .. "\n")
         file:write("Webhook=" .. Settings.Webhook .. "\n")
@@ -448,8 +434,6 @@ local function SaveSettings()
         file:write("DelayHT=" .. Settings.DelayHT .. "\n")
         file:write("DelayAfterPT=" .. Settings.DelayAfterPT .. "\n")
         file:write("DelayAfterUWS=" .. Settings.DelayAfterUWS .. "\n")
-        file:write("World=" .. Settings.World .. "\n")
-        file:write("plantLimit=" .. Settings.plantLimit .. "\n")
         file:close()
         LogToConsole("`2Settings saved.")
     else
@@ -458,7 +442,7 @@ local function SaveSettings()
 end
 
 local function LoadSettings()
-    local file = io.open("storage/emulated/0/android/media/com.rtsoft.growtopia/scripts/PTHT_SPTHT_SETTINGS.txt", "r")
+    local file = io.open("storage/emulated/0/android/media/com.rtsoft.growtopia/scripts/PTHT_SETTINGS.txt", "r")
     if file then
         for line in file:lines() do
             local key, value = line:match("([^=]+)=(.+)")
@@ -476,8 +460,6 @@ local function LoadSettings()
                 elseif key == "DelayHT" then Settings.DelayHT = tonumber(value)
                 elseif key == "DelayAfterPT" then Settings.DelayAfterPT = tonumber(value)
                 elseif key == "DelayAfterUWS" then Settings.DelayAfterUWS = tonumber(value)
-                elseif key == "World" then Settings.World = value
-                elseif key == "plantLimit" then Settings.plantLimit = tonumber(value)
                 end
             end
         end
@@ -488,13 +470,13 @@ local function LoadSettings()
     end
 end
 
--- === GUI ===
+-- === GUI (SAMA PERSIS DENGAN PTHT ASLI) ===
 AddHook("OnDraw", "PTHTGUI", function(dt)
-    if ImGui.Begin("PTHT-SPTHT Loader - Ertoxz", nil, ImGuiWindowFlags_NoCollapse) then
+    if ImGui.Begin("PTHT 2.0 Loader - Ertoxz", nil, ImGuiWindowFlags_NoCollapse) then
         if ImGui.BeginTabBar("PTHTTabs") then
             -- MAIN TAB
             if ImGui.BeginTabItem("Main") then
-                ImGui.Text("PTHT Settings (with SPTHT Planting)")
+                ImGui.Text("PTHT 2.0 Settings")
                 ImGui.Separator()
 
                 local changedWh, newWh = ImGui.Checkbox("Use Webhook", Settings.whUse)
@@ -503,12 +485,12 @@ AddHook("OnDraw", "PTHTGUI", function(dt)
                 local changedWeb, newWeb = ImGui.InputText("Webhook URL", Settings.Webhook, 200)
                 if changedWeb then Settings.Webhook = newWeb end
 
-                local changedStartX, newStartX = ImGui.InputInt("Start X", Settings.StartingPos[1], 1, 10)
+                local changedStartX, newStartX = ImGui.InputInt("Starting Pos X", Settings.StartingPos[1], 1, 10)
                 if changedStartX then Settings.StartingPos[1] = newStartX end
-                local changedStartY, newStartY = ImGui.InputInt("Start Y", Settings.StartingPos[2], 1, 10)
+                local changedStartY, newStartY = ImGui.InputInt("Starting Pos Y", Settings.StartingPos[2], 1, 10)
                 if changedStartY then Settings.StartingPos[2] = newStartY y2 = newStartY end
 
-                local changedMagBG, newMagBG = ImGui.InputInt("Magplant BG", Settings.MagBG, 1, 100)
+                local changedMagBG, newMagBG = ImGui.InputInt("Magplant Background", Settings.MagBG, 1, 100)
                 if changedMagBG then Settings.MagBG = newMagBG end
 
                 local changedSeed, newSeed = ImGui.InputInt("Seed ID", Settings.SeedID, 1, 100)
@@ -532,13 +514,6 @@ AddHook("OnDraw", "PTHTGUI", function(dt)
                 if changedAfterPT then Settings.DelayAfterPT = newAfterPT end
                 local changedAfterUWS, newAfterUWS = ImGui.InputInt("Delay After UWS", Settings.DelayAfterUWS, 100, 1000)
                 if changedAfterUWS then Settings.DelayAfterUWS = newAfterUWS end
-
-                ImGui.Text("SPTHT Planting Settings:")
-                local changedWorld, newWorld = ImGui.InputText("World Type", Settings.World, 30)
-                if changedWorld then Settings.World = newWorld maxX = (newWorld == "normal" and 99 or 199) end
-                
-                local changedLimit, newLimit = ImGui.InputInt("Plant Limit per Magplant", Settings.plantLimit, 1, 10)
-                if changedLimit then Settings.plantLimit = newLimit end
 
                 ImGui.Separator()
                 if not running then
@@ -571,11 +546,13 @@ AddHook("OnDraw", "PTHTGUI", function(dt)
                 ImGui.Text("Magplants Found: " .. #Mag)
                 ImGui.Text("Current Magplant: " .. C)
                 if magLimits[C] then
-                    ImGui.Text("Current Limit: " .. magLimits[C] .. "/" .. Settings.plantLimit)
+                    ImGui.Text("Current Limit: " .. magLimits[C] .. "/" .. SPTHT_CONFIG.plantLimit)
                 end
                 ImGui.Text("Target: (" .. targetX .. "," .. targetY .. ")")
                 ImGui.EndTabItem()
             end
+
+
             ImGui.EndTabBar()
         end
         ImGui.End()
@@ -584,4 +561,4 @@ end)
 
 -- Load settings saat start
 LoadSettings()
-LogToConsole("PTHT-SPTHT Loader ready. Use GUI to start.")
+LogToConsole("PTHT 2.0 Loader ready. Use GUI to start.")
