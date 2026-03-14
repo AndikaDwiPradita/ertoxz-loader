@@ -1,4 +1,4 @@
--- ==================== PTHT 2.0 DENGAN PILIHAN WORLD TYPE ====================
+-- ==================== PTHT 2.0 DENGAN PILIHAN MODE LENGKAP ====================
 
 Settings = {
   whUse = true,
@@ -10,6 +10,7 @@ Settings = {
   TotalPTHT = 20, 
   MaxTree = 17000, 
   
+  Mode = "PTHT", -- "PT", "HT", "PTHT", "HTPT"
   SecondAcc = false,
   -- true = planting from right, not harvesting, not using uws
   DelayPT = 25, -- ( Delay Planting ) --
@@ -61,12 +62,37 @@ end
 GrowID = Hah4(GetLocal().name)
 t = 0
 chgremote = true
-plant = true
+plant = false
 harvest = false
+currentPhase = "plant"  -- Untuk mode PTHT/HTPT
 World = GetWorld().name
 Mag = {}
 C = 1
 limit = 0
+
+-- Inisialisasi mode berdasarkan Settings.Mode
+local function initMode()
+    if Settings.Mode == "PT" then
+        plant = true
+        harvest = false
+        currentPhase = "plant"
+    elseif Settings.Mode == "HT" then
+        plant = false
+        harvest = true
+        currentPhase = "harvest"
+    elseif Settings.Mode == "PTHT" then
+        plant = true
+        harvest = false
+        currentPhase = "plant"
+    elseif Settings.Mode == "HTPT" then
+        plant = false
+        harvest = true
+        currentPhase = "harvest"
+    end
+end
+
+-- Panggil initMode saat start
+initMode()
 
 function Log(x)
 	LogToConsole("`0[`9PTHT`0] "..x)
@@ -161,34 +187,55 @@ function TakeMagplant()
 end
 
 function chgmode()
-  if plant then
-    plant = false
-    if GetTree() >= Settings.MaxTree and not Settings.SecondAcc then
-      harvest = true
-      SendPacket(2, "action|dialog_return\ndialog_name|ultraworldspray")
-      Sleep(Settings.DelayAfterUWS)
-      Log("Harvesting....")
-      harvest = true
-    elseif GetTree() >= Settings.MaxTree and Settings.SecondAcc then
-      Sleep(Settings.DelayAfterPT * 2)
-      plant = true
-      Log("Planting....")
-    elseif GetTree() < Settings.MaxTree then
-      plant = true
-      Log("Re-Planting....")
+    if Settings.Mode == "PT" then
+        -- Mode PT: tetap plant terus
+        plant = true
+        harvest = false
+        return
+    elseif Settings.Mode == "HT" then
+        -- Mode HT: tetap harvest terus
+        plant = false
+        harvest = true
+        return
+    elseif Settings.Mode == "PTHT" then
+        -- Mode PTHT: plant dulu, setelah cukup tree, ganti harvest
+        if plant then
+            if GetTree() >= Settings.MaxTree then
+                plant = false
+                harvest = true
+                if not Settings.SecondAcc then
+                    SendPacket(2, "action|dialog_return\ndialog_name|ultraworldspray")
+                    Sleep(Settings.DelayAfterUWS)
+                end
+                Log("Switching to Harvest mode")
+            end
+        elseif harvest then
+            if GetHarvest() < 500 then
+                harvest = false
+                plant = true
+                Log("Switching to Plant mode")
+            end
+        end
+    elseif Settings.Mode == "HTPT" then
+        -- Mode HTPT: harvest dulu, setelah selesai, ganti plant
+        if harvest then
+            if GetHarvest() < 500 then
+                harvest = false
+                plant = true
+                Log("Switching to Plant mode")
+            end
+        elseif plant then
+            if GetTree() >= Settings.MaxTree then
+                plant = false
+                harvest = true
+                if not Settings.SecondAcc then
+                    SendPacket(2, "action|dialog_return\ndialog_name|ultraworldspray")
+                    Sleep(Settings.DelayAfterUWS)
+                end
+                Log("Switching to Harvest mode")
+            end
+        end
     end
-    Sleep(2000)
-  elseif harvest then
-    harvest = false
-    if GetHarvest() < 500 and not Settings.SecondAcc then
-      Log("Planting...")
-      plant = true
-    elseif GetHarvest() > 0 and not Settings.SecondAcc then
-      harvest = true
-      Log("Re-Harvesting....")
-    end
-    Sleep(2000)
-  end
 end
 
 function Ptht()
@@ -242,7 +289,7 @@ function Ptht()
     return
   else
     chgmode()
-    if plant and t < Settings.TotalPTHT then
+    if plant and t < Settings.TotalPTHT and (Settings.Mode == "PTHT" or Settings.Mode == "HTPT") then
       t = t + 1
       if Settings.whUse then
         local payload = string.format([[
@@ -269,7 +316,7 @@ function Ptht()
         },
         {
           "name": "🌾 Status",
-          "value": "%d / %d",
+          "value": "%d / %d - %s",
           "inline": true
         },
         {
@@ -284,10 +331,10 @@ function Ptht()
     }
   ]
 }
-]], GrowID, World, C, #Mag, t, Settings.TotalPTHT, inv(12600), os.date("%Y-%m-%d %H:%M:%S"))
+]], GrowID, World, C, #Mag, t, Settings.TotalPTHT, Settings.Mode, inv(12600), os.date("%Y-%m-%d %H:%M:%S"))
         SendWebhook(Settings.Webhook, payload)
       end
-      Log("Done")
+      Log("Cycle " .. t .. " completed")
     end
   end
 end
@@ -312,8 +359,7 @@ end
 local function runPTHT()
     -- Inisialisasi ulang variabel
     t = 0
-    plant = true
-    harvest = false
+    initMode()  -- Set mode sesuai Settings.Mode
     C = 1
     limit = 0
     chgremote = true
@@ -332,7 +378,9 @@ local function runPTHT()
         return
     end
 
-    if type(Settings.TotalPTHT) == "number" then
+    Log("Mode: " .. Settings.Mode .. " started")
+
+    if type(Settings.TotalPTHT) == "number" and Settings.TotalPTHT > 0 then
         while running and not stopRequested and t < Settings.TotalPTHT do
             reconnect()
             Sleep(2000)
@@ -378,6 +426,7 @@ local function SaveSettings()
         file:write("SeedID=" .. Settings.SeedID .. "\n")
         file:write("TotalPTHT=" .. Settings.TotalPTHT .. "\n")
         file:write("MaxTree=" .. Settings.MaxTree .. "\n")
+        file:write("Mode=" .. Settings.Mode .. "\n")
         file:write("SecondAcc=" .. tostring(Settings.SecondAcc) .. "\n")
         file:write("DelayPT=" .. Settings.DelayPT .. "\n")
         file:write("DelayHT=" .. Settings.DelayHT .. "\n")
@@ -405,6 +454,7 @@ local function LoadSettings()
                 elseif key == "SeedID" then Settings.SeedID = tonumber(value)
                 elseif key == "TotalPTHT" then Settings.TotalPTHT = tonumber(value)
                 elseif key == "MaxTree" then Settings.MaxTree = tonumber(value)
+                elseif key == "Mode" then Settings.Mode = value
                 elseif key == "SecondAcc" then Settings.SecondAcc = (value == "true")
                 elseif key == "DelayPT" then Settings.DelayPT = tonumber(value)
                 elseif key == "DelayHT" then Settings.DelayHT = tonumber(value)
@@ -435,6 +485,20 @@ AddHook("OnDraw", "PTHTGUI", function(dt)
 
                 local changedWeb, newWeb = ImGui.InputText("Webhook URL", Settings.Webhook, 200)
                 if changedWeb then Settings.Webhook = newWeb end
+
+                ImGui.Text("Mode:")
+                if ImGui.RadioButton("PT (Plant Only)", Settings.Mode == "PT") then
+                    Settings.Mode = "PT"
+                end
+                if ImGui.RadioButton("HT (Harvest Only)", Settings.Mode == "HT") then
+                    Settings.Mode = "HT"
+                end
+                if ImGui.RadioButton("PTHT (Plant → Harvest)", Settings.Mode == "PTHT") then
+                    Settings.Mode = "PTHT"
+                end
+                if ImGui.RadioButton("HTPT (Harvest → Plant)", Settings.Mode == "HTPT") then
+                    Settings.Mode = "HTPT"
+                end
 
                 ImGui.Text("World Type:")
                 if ImGui.RadioButton("Normal", Settings.WorldType == "normal") then
@@ -502,11 +566,13 @@ AddHook("OnDraw", "PTHTGUI", function(dt)
                 ImGui.Text("Current Status: " .. currentStatus)
                 ImGui.Separator()
                 ImGui.Text("World: " .. (GetWorld() and GetWorld().name or "None"))
+                ImGui.Text("Mode: " .. Settings.Mode)
+                ImGui.Text("Current Phase: " .. (plant and "Plant" or "Harvest"))
                 ImGui.Text("World Type: " .. Settings.WorldType)
                 ImGui.Text("Size: " .. maxX+1 .. " x " .. maxY+1)
                 ImGui.Text("Trees: " .. GetTree())
                 ImGui.Text("Harvest Ready: " .. GetHarvest())
-                ImGui.Text("PTHT Count: " .. t .. " / " .. Settings.TotalPTHT)
+                ImGui.Text("PTHT Count: " .. t .. " / " .. (Settings.TotalPTHT > 0 and Settings.TotalPTHT or "∞"))
                 ImGui.Text("UWS: " .. inv(12600))
                 ImGui.Text("Magplants Found: " .. #Mag)
                 ImGui.Text("Current Magplant: " .. C)
@@ -529,4 +595,4 @@ end)
 
 -- Load settings saat start
 LoadSettings()
-LogToConsole("PTHT 2.0 Loader with World Type ready. Use GUI to start.")
+LogToConsole("PTHT 2.0 Loader with complete modes ready. Use GUI to start.")
